@@ -1,36 +1,18 @@
 'use client';
 
-import { useRef } from 'react';
 import { COLORS, TRIGGER_NAMES, TRIGGERS, TYPE_META } from '@/lib/schema';
 import { useFlow } from '@/lib/store';
 import type { TriggerName } from '@/lib/types';
-import { fieldsOf, nodeSlug, upstreamVars, visible } from '@/lib/workflow';
+import { fieldsOf, upstreamVars, visible } from '@/lib/workflow';
 import { FieldControl } from './field-control';
 import { IconButton } from './ui/button';
 import { FormField, Input, Select } from './ui/form';
 import { IconTile } from './ui/icon-tile';
 
-type TextEl = HTMLInputElement | HTMLTextAreaElement;
-
 export function ConfigPanel() {
-  const { flow, sel, panelOpen, lastRun, webhook, toast, closePanel, deleteNode, setName, setConfig, setTrigger, setWa } = useFlow();
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const lastFocus = useRef<TextEl | null>(null);
+  const { flow, sel, panelOpen, lastRun, webhook, toast, closePanel, deleteNode, setName, setConfig, setTrigger } = useFlow();
   const n = flow.nodes.find((x) => x.id === sel);
   const open = panelOpen && !!n;
-
-  /** Insère une variable {{…}} à la position du curseur du dernier champ texte focalisé */
-  const insertVar = (v: string) => {
-    const el = lastFocus.current && document.body.contains(lastFocus.current)
-      ? lastFocus.current : bodyRef.current?.querySelector<TextEl>('textarea,input[type=text]');
-    if (!el || !n) return;
-    const s = el.selectionStart ?? el.value.length, t = el.selectionEnd ?? s;
-    const value = el.value.slice(0, s) + v + el.value.slice(t);
-    if (el.dataset.field) setConfig(n.id, el.dataset.field, value);
-    else if (el.dataset.scope === 'name') setName(n.id, value);
-    else if (el.dataset.waField) setWa({ [el.dataset.waField]: value });
-    requestAnimationFrame(() => { el.focus(); try { el.setSelectionRange(s + v.length, s + v.length); } catch { /* input number */ } });
-  };
 
   let body = null;
   const run = n && lastRun?.runData.filter((r) => r.nodeId === n.id).at(-1);
@@ -38,7 +20,6 @@ export function ConfigPanel() {
     const col = COLORS[n.type], isTrigger = n.type === 'trigger';
     const fields = fieldsOf(n).filter((f) => visible(f, n.config));
     const vars = isTrigger ? [] : upstreamVars(n, flow.nodes, flow.edges);
-    const hasText = fields.some((f) => f.type === 'text' || f.type === 'textarea' || f.type === 'code');
     body = (
       <>
         <div className="px-5 py-4 border-b border-line flex items-center justify-between gap-3">
@@ -52,11 +33,9 @@ export function ConfigPanel() {
           </div>
         </div>
 
-        <div ref={bodyRef} className="flex-1 overflow-y-auto p-5 space-y-5"
-          onFocus={(e) => { if (e.target.matches('textarea,input[type=text],input[type=number]')) lastFocus.current = e.target as TextEl; }}>
-          <FormField label={isTrigger ? "Nom de l'agent" : 'Nom du bloc'} htmlFor="f__name"
-            help={!isTrigger && <>Variable : <span className="font-mono">{`{{${nodeSlug(n)}.…}}`}</span></>}>
-            <Input id="f__name" type="text" data-scope="name" value={n.name} onChange={(e) => setName(n.id, e.target.value)} />
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          <FormField label={isTrigger ? "Nom de l'agent" : 'Nom du bloc'} htmlFor="f__name">
+            <Input id="f__name" type="text" value={n.name} onChange={(e) => setName(n.id, e.target.value)} />
           </FormField>
           {isTrigger && (
             <FormField label="Type de déclencheur" htmlFor="f__trigger">
@@ -66,7 +45,7 @@ export function ConfigPanel() {
           <div className="h-px bg-line" />
 
           {fields.map((f, i) => (
-            <FieldControl key={f.key ?? `${f.type}-${i}`} field={f} value={f.key ? n.config[f.key] : undefined} onChange={(v) => setConfig(n.id, f.key!, v)} />
+            <FieldControl key={f.key ?? `${f.type}-${i}`} field={f} value={f.key ? n.config[f.key] : undefined} vars={vars} onChange={(v) => setConfig(n.id, f.key!, v)} />
           ))}
 
           {isTrigger && n.trigger === 'API / Webhook' && (
@@ -99,24 +78,6 @@ export function ConfigPanel() {
             </div>
           )}
 
-          {!isTrigger && hasText && (
-            <div>
-              <div className="font-medium mb-2">Variables disponibles</div>
-              {vars.length ? (
-                <>
-                  <div className="flex flex-wrap gap-1.5">
-                    {vars.map((v) => (
-                      <button key={v} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insertVar(v)}
-                        className="px-2 py-1 rounded-md border border-line bg-subtle text-muted hover:border-accent hover:bg-accent-soft hover:text-accent font-mono text-xs">{v}</button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-faint mt-2">Placez le curseur dans un champ texte, puis cliquez une variable pour l&apos;insérer.</p>
-                </>
-              ) : (
-                <p className="text-xs text-faint">Reliez ce bloc à un bloc précédent pour utiliser ses données.</p>
-              )}
-            </div>
-          )}
         </div>
       </>
     );

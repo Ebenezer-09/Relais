@@ -1,13 +1,13 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type { ComponentProps, ReactNode, SelectHTMLAttributes } from 'react';
 import { cx } from './cx';
 
 const INPUT = 'w-full bg-surface text-ink px-3 py-2 rounded-md border border-line placeholder:text-faint hover:border-line-strong focus:outline-none focus:border-accent focus:ring-3 focus:ring-accent-soft';
 
-export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...rest }: ComponentProps<'input'>) {
   return <input autoComplete="off" className={cx(INPUT, className)} {...rest} />;
 }
 
-export function TextArea({ className, code, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement> & { code?: boolean }) {
+export function TextArea({ className, code, ...rest }: ComponentProps<'textarea'> & { code?: boolean }) {
   return <textarea spellCheck={code ? false : undefined} className={cx(INPUT, 'resize-y', code && 'font-mono text-xs leading-relaxed bg-subtle', className)} {...rest} />;
 }
 

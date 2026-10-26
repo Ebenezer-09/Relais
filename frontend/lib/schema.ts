@@ -78,7 +78,7 @@ export const SCHEMAS: Record<BlockType, FieldDef[]> = {
     { key: 'apiKey', label: "Clé d'API", type: 'password', required: true, showIf: (c) => c.provider !== 'Ollama (local)' && c.provider !== 'Groq' },
     { key: 'baseUrl', label: 'URL de base', type: 'text', required: true, default: 'http://localhost:11434', showIf: (c) => c.provider === 'Ollama (local)' || c.provider === 'Compatible OpenAI' },
     { key: 'system', label: 'Prompt système', type: 'textarea', rows: 6, required: true, placeholder: "Tu es l'assistant de… Réponds toujours en français, de façon concise.", help: "Le rôle, le ton et les règles de l'agent." },
-    { key: 'prompt', label: 'Prompt utilisateur', type: 'textarea', rows: 3, required: true, default: '{{trigger.text}}', help: "Cliquez une variable ci-dessous pour l'insérer." },
+    { key: 'prompt', label: 'Prompt utilisateur', type: 'textarea', rows: 3, required: true, default: '{{trigger.text}}', help: "Utilisez « Insérer une donnée » pour reprendre le message reçu." },
     { key: 'memory', label: 'Mémoire de conversation', type: 'toggle', default: false },
     { key: 'memoryKey', label: 'Clé de session', type: 'text', default: '{{trigger.from}}', showIf: (c) => !!c.memory, help: "Une conversation distincte par valeur (ex : numéro de l'expéditeur)." },
     { key: 'memoryWindow', label: 'Messages gardés en mémoire', type: 'number', default: 10, showIf: (c) => !!c.memory },
@@ -90,7 +90,7 @@ export const SCHEMAS: Record<BlockType, FieldDef[]> = {
   whatsapp: [
     { key: 'action', label: 'Action', type: 'select', options: ['Envoyer un texte', 'Envoyer un média', "Afficher « en train d'écrire »"], default: 'Envoyer un texte' },
     { type: 'wa-session', required: true },
-    { key: 'to', label: 'Destinataire', type: 'text', required: true, default: '{{trigger.from}}', help: 'Numéro au format international (212612345678) ou variable.' },
+    { key: 'to', label: 'Destinataire', type: 'text', required: true, default: '{{trigger.from}}', help: 'Numéro au format international (212612345678), ou une donnée insérée.' },
     { key: 'text', label: 'Message', type: 'textarea', rows: 4, required: true, showIf: (c) => c.action === 'Envoyer un texte', placeholder: '{{llm.text}}' },
     { key: 'mediaUrl', label: 'URL du média', type: 'text', required: true, showIf: (c) => c.action === 'Envoyer un média' },
     { key: 'caption', label: 'Légende', type: 'textarea', rows: 2, showIf: (c) => c.action === 'Envoyer un média' },
