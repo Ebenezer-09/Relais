@@ -10,3 +10,5 @@ process.env.ENCRYPTION_KEY = 'ab'.repeat(32);
 process.env.PUBLIC_URL = 'http://localhost:3001';
 process.env.ADMIN_USERNAME = 'admin';
 process.env.ADMIN_PIN = '4821';
+// jamais la base Postgres du .env : seule une base jetable explicite (voir mirror.test.ts)
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? '';
