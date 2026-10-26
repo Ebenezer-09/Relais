@@ -1,6 +1,6 @@
 import type { FlowEdge, FlowNode } from './types';
 
-/* ---------- connexion (URL du backend + jeton de session, gardés dans ce navigateur) ---------- */
+/* ---------- connexion : URL du backend fixée au build, jeton de session gardé dans ce navigateur ---------- */
 const CONN_KEY = 'relais-api';
 /** key : jeton de session obtenu par nom d'utilisateur + code PIN */
 export interface Connection { url: string; key: string }
@@ -8,11 +8,11 @@ export interface Connection { url: string; key: string }
 export const LOGOUT_EVENT = 'relais:logout';
 
 export function getConnection(): Connection {
-  const dflt = { url: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001', key: '' };
-  try { return { ...dflt, ...JSON.parse(localStorage.getItem(CONN_KEY) || '{}') }; } catch { return dflt; }
+  const url = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+  try { return { url, key: JSON.parse(localStorage.getItem(CONN_KEY) || '{}').key ?? '' }; } catch { return { url, key: '' }; }
 }
 export function saveConnection(c: Connection) {
-  try { localStorage.setItem(CONN_KEY, JSON.stringify({ url: c.url.trim().replace(/\/$/, ''), key: c.key.trim() })); } catch { /* stockage indisponible */ }
+  try { localStorage.setItem(CONN_KEY, JSON.stringify({ key: c.key.trim() })); } catch { /* stockage indisponible */ }
 }
 
 export class ApiError extends Error {
@@ -85,8 +85,8 @@ export const publicApi = {
 export const api = {
   /** Vérifie que le serveur répond ET que la session est valide */
   check: (conn: Connection) => request<CredentialMeta[]>('/api/credentials', {}, conn),
-  login: (url: string, username: string, pin: string) =>
-    request<{ token: string }>('/api/auth/login', { method: 'POST', body: { username, pin } }, { url, key: '' }),
+  login: (username: string, pin: string) =>
+    request<{ token: string }>('/api/auth/login', { method: 'POST', body: { username, pin } }, { url: getConnection().url, key: '' }),
 
   workflows: {
     list: () => request<WorkflowRecord[]>('/api/workflows'),

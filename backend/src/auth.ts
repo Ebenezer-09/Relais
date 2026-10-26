@@ -3,7 +3,7 @@ import { config } from './config.js';
 
 /* Connexion administrateur : nom d'utilisateur + code PIN à 4 chiffres.
    Un PIN n'a que 10 000 combinaisons : les essais ratés sont limités par adresse IP ET au total. */
-const SESSION_MS = 7 * 24 * 3600_000;
+const SESSION_MS = 365 * 24 * 3600_000;
 const PER_IP = { max: 5, lockMs: 15 * 60_000 };
 const GLOBAL = { max: 30, windowMs: 3600_000, lockMs: 3600_000 };
 

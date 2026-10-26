@@ -35,7 +35,7 @@ Gardez **une seule instance**.
 
 ## 3. Utilisation
 
-- Ouvrez l'adresse Vercel, entrez votre nom d'utilisateur et votre code PIN. La session dure 7 jours.
+- Ouvrez l'adresse Vercel, entrez votre nom d'utilisateur et votre code PIN. La session dure 1 an sur cet appareil.
   Protection : 5 codes faux bloquent l'appareil 15 min ; 30 codes faux en une heure bloquent toute connexion pendant 1 h.
 - Créez un agent, configurez-le, testez-le, activez-le.
 - **Partager** (en-tête) → **Créer le lien client** : envoyez ce lien au client. Il voit son agent en direct,

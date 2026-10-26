@@ -12,7 +12,7 @@ const SAVE_LABEL: Record<SaveState, string> = { idle: 'Modifications non enregis
 
 export function Header() {
   const [sharing, setSharing] = useState(false);
-  const { flow, connOk, conn, saveState, saveError, active, running, shareToken, validate, exportJson, openCreate, runTest, toggleActive, setSettingsOpen } = useFlow();
+  const { flow, connOk, saveState, saveError, active, running, shareToken, validate, exportJson, openCreate, runTest, toggleActive, setSettingsOpen } = useFlow();
   const agent = flow.nodes.find((n) => n.type === 'trigger');
   const manual = agent?.trigger === 'Clic manuel';
   return (
@@ -33,7 +33,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => setSettingsOpen(true)} title={connOk ? `Connecté à ${conn.url}` : 'Se connecter au serveur'}
+        <button type="button" onClick={() => setSettingsOpen(true)} title={connOk ? 'Connecté' : 'Se connecter'}
           className={cx('flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs hover:bg-subtle', connOk ? 'text-muted' : 'text-danger')}>
           <span className={cx('w-1.5 h-1.5 rounded-full', connOk ? 'bg-ok' : 'bg-danger')} />
           <span className="max-lg:hidden">{connOk ? 'Serveur connecté' : connOk === null ? 'Connexion…' : 'Hors ligne'}</span>

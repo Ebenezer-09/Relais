@@ -6,27 +6,22 @@ import { Button, IconButton } from './ui/button';
 import { FormField, Input } from './ui/form';
 import { Logo } from './ui/logo';
 
-// En production, l'adresse du serveur est fixée au déploiement (Vercel)
-const FIXED_URL = !!process.env.NEXT_PUBLIC_API_URL;
-
 /** Connexion : nom d'utilisateur + code PIN à 4 chiffres (ADMIN_USERNAME / ADMIN_PIN du serveur) */
 export function SettingsModal() {
-  const { settingsOpen, setSettingsOpen, conn, connOk, login, logout } = useFlow();
-  const [url, setUrl] = useState('');
+  const { settingsOpen, setSettingsOpen, connOk, login, logout } = useFlow();
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
-  const [editUrl, setEditUrl] = useState(!FIXED_URL);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { if (settingsOpen) { setUrl(conn.url); setPin(''); setError(''); } }, [settingsOpen, conn]);
+  useEffect(() => { if (settingsOpen) { setPin(''); setError(''); } }, [settingsOpen]);
   if (!settingsOpen) return null;
 
   const close = () => setSettingsOpen(false);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true); setError('');
-    try { await login(url, username, pin); } catch (err) { setError(err instanceof Error ? err.message : String(err)); setPin(''); } finally { setBusy(false); }
+    try { await login(username, pin); } catch (err) { setError(err instanceof Error ? err.message : String(err)); setPin(''); } finally { setBusy(false); }
   };
 
   return (
@@ -39,7 +34,7 @@ export function SettingsModal() {
         </div>
         <div className="px-5 pt-3">
           <h2 id="settings-title" className="text-base font-semibold">{connOk ? 'Vous êtes connecté' : 'Connexion'}</h2>
-          <p className="text-muted mt-0.5">{connOk ? `Serveur : ${conn.url}` : 'Entrez votre nom d’utilisateur et votre code à 4 chiffres.'}</p>
+          <p className="text-muted mt-0.5">{connOk ? 'Vous restez connecté 1 an sur cet appareil.' : 'Entrez votre nom d’utilisateur et votre code à 4 chiffres.'}</p>
         </div>
         {connOk ? (
           <div className="p-5">
@@ -56,13 +51,6 @@ export function SettingsModal() {
                   title="4 chiffres" className="font-mono text-lg tracking-[0.6em] text-center" value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} />
               </FormField>
-              {editUrl ? (
-                <FormField label="Adresse du serveur" htmlFor="api-url">
-                  <Input id="api-url" type="url" required value={url} placeholder="https://relais-api.onrender.com" onChange={(e) => setUrl(e.target.value)} />
-                </FormField>
-              ) : (
-                <p className="text-xs text-faint">Serveur : <span className="font-mono">{url}</span> · <button type="button" className="underline hover:text-ink" onClick={() => setEditUrl(true)}>modifier</button></p>
-              )}
               {error && <p role="alert" className="text-danger">{error}</p>}
             </div>
             <div className="px-5 pb-5">

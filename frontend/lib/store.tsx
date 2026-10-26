@@ -171,10 +171,9 @@ function useFlowStore() {
   }, [flow.nodes, flow.edges, loaded, save]);
 
   /* ---------- connexion au serveur ---------- */
-  const login = useCallback(async (url: string, username: string, pin: string) => {
-    url = url.trim().replace(/\/$/, '');
-    const { token } = await api.login(url, username, pin); // lève une erreur lisible (code faux, blocage…)
-    saveConnection({ url, key: token });
+  const login = useCallback(async (username: string, pin: string) => {
+    const { token } = await api.login(username, pin); // lève une erreur lisible (code faux, blocage…)
+    saveConnection({ url: getConnection().url, key: token });
     setConn(getConnection());
     setSettingsOpen(false);
     toast('Connecté.');
