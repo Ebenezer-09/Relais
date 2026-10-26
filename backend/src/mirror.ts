@@ -21,6 +21,8 @@ export async function restore(db: Database.Database): Promise<void> {
   sqlite = db;
   if (!pool) return;
   await pool.query('CREATE TABLE IF NOT EXISTS relais_rows (tbl TEXT NOT NULL, key TEXT NOT NULL, row JSONB NOT NULL, PRIMARY KEY (tbl, key))');
+  // Supabase expose le schéma public via son API : RLS sans politique = invisible pour anon/authenticated
+  await pool.query('ALTER TABLE relais_rows ENABLE ROW LEVEL SECURITY');
   const { rows } = await pool.query<{ tbl: string; row: Record<string, unknown> }>('SELECT tbl, row FROM relais_rows');
   db.transaction(() => {
     for (const { tbl, row } of rows) {
