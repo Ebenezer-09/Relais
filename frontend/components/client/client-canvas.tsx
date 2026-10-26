@@ -27,6 +27,8 @@ export function ClientCanvas({ nodes, edges, execution, selected, onSelect }: {
   const getZoom = useCallback(() => viewRef.current.k, []);
   const { paths, registerPort } = useEdgePaths(nodes, edges, worldRef, getZoom, [execution]);
   const runs = lastRuns(execution);
+  // pendant une exécution : les liens dont le bloc de départ a déjà envoyé des données sur ce port
+  const flowing = new Set(execution?.status === 'running' ? edges.filter((e) => runs.get(e.from)?.output?.[e.port]?.length).map((e) => e.id) : []);
 
   const fit = useCallback(() => { const v = fitView(nodes, containerRef.current!); if (v) setView(v); }, [nodes]);
   useEffect(() => {
@@ -69,7 +71,7 @@ export function ClientCanvas({ nodes, edges, execution, selected, onSelect }: {
       <div className="absolute inset-0 pointer-events-none"
         style={{ backgroundImage: 'radial-gradient(circle,#d3d7dc 1px,transparent 1px)', backgroundSize: `${20 * k}px ${20 * k}px`, backgroundPosition: `${x}px ${y}px` }} />
       <div ref={worldRef} className="world" style={{ transform: `translate(${x}px,${y}px) scale(${k})` }}>
-        <EdgesLayer paths={paths} />
+        <EdgesLayer paths={paths} flowing={flowing} />
         {nodes.map((n) => {
           const run = runs.get(n.id);
           return (

@@ -1,13 +1,15 @@
 export interface EdgePath { id: string; d: string; color: string; mx: number; my: number }
 
 /** Liens entre blocs ; la croix de suppression apparaît au survol du lien */
-export function EdgesLayer({ paths, tmp = null, onDelete }: { paths: EdgePath[]; tmp?: string | null; onDelete?: (id: string) => void }) {
+/** flowing : liens où des données circulent en ce moment (points qui défilent dans le sens du flux) */
+export function EdgesLayer({ paths, tmp = null, flowing, onDelete }: { paths: EdgePath[]; tmp?: string | null; flowing?: Set<string>; onDelete?: (id: string) => void }) {
   return (
     <svg className="edges">
       {paths.map(({ id, d, color, mx, my }) => (
         <g key={id} className="edge-group">
           <path className="edge-hit" d={d} />
           <path className="edge" d={d} stroke={color} />
+          {flowing?.has(id) && <path className="edge-flow" d={d} stroke={color} />}
           {onDelete && <g className="edge-del" onPointerDown={(e) => { e.stopPropagation(); onDelete(id); }}>
             <title>Supprimer le lien</title>
             <circle cx={mx} cy={my} r={9} fill="#fff" stroke="#cdd2d8" strokeWidth={1} />
