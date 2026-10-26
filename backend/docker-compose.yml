@@ -1,0 +1,14 @@
+services:
+  synapse:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    ports:
+      - "3001:3001"
+    volumes:
+      # SQLite + sessions WhatsApp : à sauvegarder, sinon il faut rescanner le QR
+      - synapse-data:/data
+volumes:
+  synapse-data:

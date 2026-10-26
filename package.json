@@ -1,0 +1,9 @@
+{
+  "name": "relais",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix backend run dev & npm --prefix frontend run dev; wait",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  }
+}

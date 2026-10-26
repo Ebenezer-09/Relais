@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html class="dark" lang="fr"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<title>Synapse Flow</title>
+<style>
+html,body{margin:0;padding:0;font-family:Inter,sans-serif}
+body{overscroll-behavior:none}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#3e4850;border-radius:3px}
+#canvas-container{touch-action:none;cursor:grab}
+#canvas-container.panning{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+.node{position:absolute;width:264px;border-radius:12px;background:#1b1b1f;box-shadow:0 10px 25px rgba(0,0,0,.45);cursor:default}
+.node .head{cursor:grab;border-radius:12px 12px 0 0;touch-action:none}
+.node .head:active{cursor:grabbing}
+.port{position:absolute;width:16px;height:16px;border-radius:9999px;border:2px solid #121316;display:flex;align-items:center;justify-content:center;cursor:crosshair;touch-action:none;color:#00201c;font-size:12px;line-height:1;z-index:5}
+.port.in{left:-8px;top:20px;background:#88929b}
+.port.in::before{content:"";position:absolute;inset:-8px}
+.port.out{right:-8px;top:20px}
+.port:hover{transform:scale(1.35)}
+.port-row{position:relative;height:30px;display:flex;align-items:center;justify-content:flex-end;padding:0 14px;font-size:12px;font-weight:600}
+.port-row .port{right:-8px;top:7px}
+svg#edges{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
+.edge{fill:none;stroke-width:2.5;stroke-linecap:round}
+.edge.flow{stroke-dasharray:7 7;animation:flow 1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-14}}
+.edge-del{pointer-events:all;cursor:pointer;opacity:.55}
+.edge-del:hover{opacity:1}
+#panel{transition:transform .2s ease}
+.chip{cursor:pointer}
+.switch{appearance:none;width:36px;height:20px;border-radius:9999px;background:#343538;position:relative;cursor:pointer;transition:.15s;flex-shrink:0}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#bec8d2;transition:.15s}
+.switch:checked{background:#0ea5e9}.switch:checked::after{left:18px;background:#fff}
+.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400;user-select:none}
+</style>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-primary":"#00344d","on-secondary":"#003731","outline":"#88929b","primary-container":"#0ea5e9","on-primary-container":"#003751","on-surface":"#e3e2e6","background":"#121316","surface":"#121316","surface-container-high":"#292a2d","secondary":"#4fdbc8","tertiary":"#ffb86e","error":"#ffb4ab","surface-container":"#1f1f23","surface-container-highest":"#343538","primary-fixed":"#c9e6ff","on-surface-variant":"#bec8d2","outline-variant":"#3e4850","primary":"#89ceff","surface-container-lowest":"#0d0e11","surface-container-low":"#1b1b1f","secondary-fixed":"#71f8e4"}}}}</script>
+</head>
+<body class="bg-surface text-on-surface antialiased text-sm">
+
+<header class="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-md h-16 px-4 sm:px-6 flex items-center justify-between gap-3">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">hub</span></div>
+    <span class="text-lg font-semibold tracking-tight">Synapse Flow</span>
+  </div>
+  <div class="flex items-center gap-2">
+    <button id="btn-validate" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-medium" type="button"><span class="material-symbols-outlined text-[18px]">task_alt</span>Valider</button>
+    <button id="btn-export" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-medium" type="button"><span class="material-symbols-outlined text-[18px]">download</span>Exporter</button>
+    <button id="btn-create-agent" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-container text-on-primary-container hover:bg-primary font-medium" type="button"><span class="material-symbols-outlined text-[18px]">smart_toy</span>Créer un agent</button>
+  </div>
+</header>
+
+<main class="w-full pt-16">
+<div id="canvas-container" class="relative w-full h-[calc(100vh-4rem)] overflow-hidden bg-[#0B0C0F] select-none">
+  <div class="absolute inset-0 pointer-events-none opacity-40" id="grid" style="background-image:radial-gradient(circle,#3e4850 1px,transparent 1px);background-size:20px 20px"></div>
+  <div id="world"><svg id="edges"></svg><div id="nodes"></div></div>
+
+  <div id="empty-state" class="absolute inset-0 flex items-center justify-center px-6 pointer-events-none">
+    <div class="max-w-md text-center pointer-events-auto">
+      <div class="mx-auto mb-4 w-12 h-12 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center shadow-lg"><span class="material-symbols-outlined text-[26px]">smart_toy</span></div>
+      <h1 class="text-2xl font-semibold">Créer un agent</h1>
+      <p class="mt-2 text-on-surface-variant">Choisissez un nom et un déclencheur (WhatsApp, Telegram, Mail, API…). Vous le paramétrerez ensuite dans le panneau.</p>
+      <button id="btn-empty-create" class="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-on-primary font-semibold hover:bg-primary-fixed" type="button"><span class="material-symbols-outlined text-[18px]">add</span>Créer un agent</button>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div class="absolute bottom-6 left-6 z-20 flex items-center gap-2 bg-surface-container-low/90 backdrop-blur-md p-1.5 rounded-xl shadow-2xl">
+    <button id="z-in" class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center hover:bg-surface-container-highest" title="Zoom +" type="button"><span class="material-symbols-outlined text-[18px]">add</span></button>
+    <button id="z-out" class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center hover:bg-surface-container-highest" title="Zoom −" type="button"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+    <div id="z-label" class="px-2 text-[11px] text-outline font-mono w-12 text-center">100%</div>
+    <div class="w-px h-5 bg-outline-variant"></div>
+    <button id="z-fit" class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center hover:bg-surface-container-highest" title="Ajuster la vue" type="button"><span class="material-symbols-outlined text-[18px]">fit_screen</span></button>
+    <div class="w-px h-5 bg-outline-variant"></div>
+    <button id="btn-add-block" class="flex items-center gap-1.5 px-3 h-8 rounded-lg bg-secondary text-on-secondary font-semibold hover:bg-secondary-fixed" type="button"><span class="material-symbols-outlined text-[18px]">add_circle</span>Bloc</button>
+  </div>
+
+  <!-- Palette -->
+  <div id="palette" class="hidden absolute z-40 w-60 bg-surface-container rounded-xl shadow-2xl ring-1 ring-outline-variant p-2 max-h-[70vh] overflow-y-auto"></div>
+
+  <!-- Panneau de configuration -->
+  <aside id="panel" class="absolute top-0 right-0 bottom-0 z-30 w-[400px] max-w-full bg-surface-container shadow-2xl ring-1 ring-outline-variant flex flex-col" style="transform:translateX(105%)"></aside>
+</div>
+
+<!-- Modal agent -->
+<div id="agent-modal" class="hidden fixed inset-0 z-[60] items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+  <form id="agent-form" class="w-full max-w-md bg-surface-container rounded-xl shadow-2xl ring-1 ring-outline-variant overflow-hidden">
+    <div class="px-5 py-4 bg-surface-container-high flex items-center justify-between">
+      <div class="flex items-center gap-3"><div class="w-9 h-9 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">smart_toy</span></div>
+      <div><h2 class="text-lg font-semibold">Créer un agent</h2><p class="text-xs text-outline">Étape 1 : nom et déclencheur</p></div></div>
+      <button class="p-1.5 rounded-lg text-outline hover:text-on-surface" data-close="agent-modal" type="button"><span class="material-symbols-outlined text-[20px]">close</span></button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div><label class="block font-semibold mb-1.5" for="agent-name">Nom de l'agent</label>
+      <input id="agent-name" class="w-full bg-surface-container-lowest px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" placeholder="Ex : Assistant support client" type="text"/></div>
+      <div><label class="block font-semibold mb-1.5" for="agent-trigger">Déclencheur</label>
+      <select id="agent-trigger" class="w-full bg-surface-container-lowest px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"></select>
+      <p class="text-xs text-outline mt-1.5">Les paramètres du déclencheur (QR code WhatsApp, token, URL…) s'ouvrent juste après.</p></div>
+    </div>
+    <div class="px-5 py-4 bg-surface-container-high flex justify-end gap-3">
+      <button class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-highest" data-close="agent-modal" type="button">Annuler</button>
+      <button class="px-4 py-2 rounded-lg bg-primary text-on-primary font-semibold hover:bg-primary-fixed" type="submit">Créer et configurer</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] max-w-md px-4 py-3 rounded-xl bg-surface-container-highest shadow-2xl ring-1 ring-outline-variant text-sm"></div>
+</main>
+
+<footer class="w-full bg-surface-container-lowest">
+  <div class="px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-outline">
+    <div>© 2025 Synapse Flow Orchestration Platform.</div>
+    <div class="font-mono">v2.15.0 · éditeur de workflow</div>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   CONSTANTES & SCHÉMAS
+   ============================================================ */
+const NODE_W = 264;
+const COLORS = {trigger:'#89ceff',llm:'#ffb86e',whatsapp:'#25d366',telegram:'#29a9eb',mail:'#f87171',condition:'#a78bfa',function:'#4fdbc8',automation:'#fbbf24'};
+const TYPE_META = {
+  trigger:{label:'Déclencheur',icon:'bolt'},
+  llm:{label:'LLM',icon:'psychology'},
+  whatsapp:{label:'WhatsApp',icon:'chat'},
+  telegram:{label:'Telegram',icon:'send'},
+  mail:{label:'Mail',icon:'mail'},
+  condition:{label:'Condition',icon:'alt_route'},
+  function:{label:'Fonction',icon:'functions'},
+  automation:{label:'Automation',icon:'settings_suggest'}
+};
+const PALETTE = [
+  {group:'Messagerie',items:['whatsapp','telegram','mail']},
+  {group:'Intelligence artificielle',items:['llm']},
+  {group:'Logique & code',items:['condition','function','automation']}
+];
+const PALETTE_DESC = {
+  whatsapp:'Envoyer un message via votre session',telegram:'Envoyer via un bot Telegram',mail:'Envoyer un email (SMTP)',
+  llm:'Prompt système, format de sortie, mémoire',condition:'Branches Oui / Non',function:'Code JavaScript ou Python',automation:'HTTP, délai, variable, boucle, stockage'
+};
+
+const opt = (...a)=>a;
+const TRIGGERS = {
+  'Message WhatsApp':{icon:'chat',vars:['text','from','name'],fields:[
+    {type:'wa-session',required:true},
+    {key:'allowed',label:'Numéros autorisés (optionnel)',type:'textarea',rows:2,placeholder:'212612345678\n33612345678',help:'Un numéro par ligne. Vide = tout le monde.'},
+    {key:'ignoreGroups',label:'Ignorer les groupes',type:'toggle',default:true},
+    {key:'ignoreOwn',label:'Ignorer mes propres messages',type:'toggle',default:true}
+  ]},
+  'Message Telegram':{icon:'send',vars:['text','chat_id','username'],fields:[
+    {key:'botToken',label:'Token du bot',type:'password',required:true,placeholder:'123456:ABC-DEF…',help:'Obtenu auprès de @BotFather.'},
+    {key:'mode',label:'Mode de réception',type:'select',options:opt('Long polling','Webhook'),default:'Long polling'},
+    {key:'allowed',label:'Chat IDs autorisés (optionnel)',type:'textarea',rows:2,placeholder:'Un ID par ligne'}
+  ]},
+  'Email entrant':{icon:'mail',vars:['from','subject','body'],fields:[
+    {key:'imapHost',label:'Serveur IMAP',type:'text',required:true,placeholder:'imap.gmail.com'},
+    {key:'imapPort',label:'Port',type:'number',default:993},
+    {key:'secure',label:'Connexion sécurisée (SSL/TLS)',type:'toggle',default:true},
+    {key:'user',label:'Utilisateur',type:'text',required:true,placeholder:'vous@exemple.com'},
+    {key:'password',label:'Mot de passe / mot de passe d\'application',type:'password',required:true},
+    {key:'folder',label:'Dossier surveillé',type:'text',default:'INBOX'},
+    {key:'filterFrom',label:'Filtrer par expéditeur (optionnel)',type:'text'},
+    {key:'poll',label:'Vérifier toutes les (secondes)',type:'number',default:60}
+  ]},
+  'API / Webhook':{icon:'api',vars:['body','query','headers'],fields:[
+    {key:'path',label:'Chemin de l\'endpoint',type:'text',required:true,default:'/agent/entree',help:'URL finale : https://votre-domaine.com/agent/entree'},
+    {key:'method',label:'Méthode HTTP',type:'select',options:opt('POST','GET','PUT'),default:'POST'},
+    {key:'auth',label:'Authentification',type:'select',options:opt('Aucune','Bearer token','Clé d\'API (header)'),default:'Aucune',affects:true},
+    {key:'secret',label:'Secret / token attendu',type:'password',required:true,showIf:c=>c.auth!=='Aucune'},
+    {key:'responseMode',label:'Réponse HTTP',type:'select',options:opt('Immédiate (200 OK)','Attendre la fin du workflow'),default:'Immédiate (200 OK)'}
+  ]},
+  'Planification':{icon:'schedule',vars:['date'],fields:[
+    {key:'mode',label:'Mode',type:'select',options:opt('Intervalle','Expression cron'),default:'Intervalle',affects:true},
+    {key:'every',label:'Toutes les',type:'number',default:15,showIf:c=>c.mode==='Intervalle'},
+    {key:'unit',label:'Unité',type:'select',options:opt('minutes','heures','jours'),default:'minutes',showIf:c=>c.mode==='Intervalle'},
+    {key:'cron',label:'Expression cron',type:'text',required:true,placeholder:'0 9 * * 1-5',showIf:c=>c.mode==='Expression cron',help:'Ex : 0 9 * * 1-5 = 9h du lundi au vendredi.'},
+    {key:'tz',label:'Fuseau horaire',type:'text',default:'Africa/Casablanca'}
+  ]},
+  'Clic manuel':{icon:'touch_app',vars:['input'],fields:[
+    {key:'input',label:'Données d\'entrée de test (JSON)',type:'code',rows:5,default:'{\n  "text": "Bonjour"\n}'}
+  ]}
+};
+
+const SCHEMAS = {
+  llm:{fields:[
+    {key:'provider',label:'Fournisseur',type:'select',options:opt('Anthropic (Claude)','OpenAI','Google Gemini','Mistral','Ollama (local)','Compatible OpenAI'),default:'Anthropic (Claude)',affects:true},
+    {key:'model',label:'Modèle',type:'text',required:true,placeholder:'Identifiant du modèle'},
+    {key:'apiKey',label:'Clé d\'API',type:'password',required:true,showIf:c=>c.provider!=='Ollama (local)'},
+    {key:'baseUrl',label:'URL de base',type:'text',required:true,default:'http://localhost:11434',showIf:c=>c.provider==='Ollama (local)'||c.provider==='Compatible OpenAI'},
+    {key:'system',label:'Prompt système',type:'textarea',rows:6,required:true,placeholder:'Tu es l\'assistant de… Réponds toujours en français, de façon concise.',help:'Le rôle, le ton et les règles de l\'agent.'},
+    {key:'prompt',label:'Prompt utilisateur',type:'textarea',rows:3,required:true,default:'{{trigger.text}}',help:'Cliquez une variable ci-dessous pour l\'insérer.'},
+    {key:'memory',label:'Mémoire de conversation',type:'toggle',default:false,affects:true},
+    {key:'memoryKey',label:'Clé de session',type:'text',default:'{{trigger.from}}',showIf:c=>c.memory,help:'Une conversation distincte par valeur (ex : numéro de l\'expéditeur).'},
+    {key:'memoryWindow',label:'Messages gardés en mémoire',type:'number',default:10,showIf:c=>c.memory},
+    {key:'format',label:'Format de sortie',type:'select',options:opt('Texte libre','JSON','JSON avec schéma'),default:'Texte libre',affects:true},
+    {key:'schema',label:'Schéma JSON attendu',type:'code',rows:6,required:true,showIf:c=>c.format==='JSON avec schéma',placeholder:'{\n  "type":"object",\n  "properties":{"reponse":{"type":"string"}}\n}'},
+    {key:'temperature',label:'Température',type:'number',step:0.1,default:0.7},
+    {key:'maxTokens',label:'Tokens max en sortie',type:'number',default:1024}
+  ]},
+  whatsapp:{fields:[
+    {key:'action',label:'Action',type:'select',options:opt('Envoyer un texte','Envoyer un média','Afficher « en train d\'écrire »'),default:'Envoyer un texte',affects:true},
+    {type:'wa-session',required:true},
+    {key:'to',label:'Destinataire',type:'text',required:true,default:'{{trigger.from}}',help:'Numéro au format international (212612345678) ou variable.'},
+    {key:'text',label:'Message',type:'textarea',rows:4,required:true,showIf:c=>c.action==='Envoyer un texte',placeholder:'{{llm.text}}'},
+    {key:'mediaUrl',label:'URL du média',type:'text',required:true,showIf:c=>c.action==='Envoyer un média'},
+    {key:'caption',label:'Légende',type:'textarea',rows:2,showIf:c=>c.action==='Envoyer un média'},
+    {key:'delay',label:'Délai avant envoi (ms)',type:'number',default:0}
+  ]},
+  telegram:{fields:[
+    {key:'action',label:'Action',type:'select',options:opt('Envoyer un message','Envoyer une photo','Envoyer un document'),default:'Envoyer un message',affects:true},
+    {key:'botToken',label:'Token du bot',type:'password',required:true},
+    {key:'chatId',label:'Chat ID',type:'text',required:true,default:'{{trigger.chat_id}}'},
+    {key:'text',label:'Message',type:'textarea',rows:4,required:true,showIf:c=>c.action==='Envoyer un message',placeholder:'{{llm.text}}'},
+    {key:'mediaUrl',label:'URL du fichier',type:'text',required:true,showIf:c=>c.action!=='Envoyer un message'},
+    {key:'caption',label:'Légende',type:'textarea',rows:2,showIf:c=>c.action!=='Envoyer un message'},
+    {key:'parseMode',label:'Mise en forme',type:'select',options:opt('Texte brut','Markdown','HTML'),default:'Texte brut'}
+  ]},
+  mail:{fields:[
+    {key:'action',label:'Action',type:'select',options:opt('Envoyer un email','Répondre à l\'email reçu'),default:'Envoyer un email'},
+    {key:'smtpHost',label:'Serveur SMTP',type:'text',required:true,placeholder:'smtp.gmail.com'},
+    {key:'smtpPort',label:'Port',type:'number',default:587},
+    {key:'secure',label:'Connexion sécurisée (SSL/TLS)',type:'toggle',default:false},
+    {key:'user',label:'Utilisateur',type:'text',required:true},
+    {key:'password',label:'Mot de passe',type:'password',required:true},
+    {key:'from',label:'Expéditeur',type:'text',required:true,placeholder:'Agent <agent@exemple.com>'},
+    {key:'to',label:'Destinataire(s)',type:'text',required:true,default:'{{trigger.from}}'},
+    {key:'cc',label:'Copie (cc)',type:'text'},
+    {key:'subject',label:'Objet',type:'text',required:true,placeholder:'Re : {{trigger.subject}}'},
+    {key:'body',label:'Contenu',type:'textarea',rows:6,required:true,placeholder:'{{llm.text}}'},
+    {key:'html',label:'Contenu en HTML',type:'toggle',default:false}
+  ]},
+  condition:{fields:[
+    {key:'left',label:'Valeur à tester',type:'text',required:true,placeholder:'{{llm.text}}'},
+    {key:'op',label:'Opérateur',type:'select',options:opt('contient','ne contient pas','est égal à','est différent de','commence par','correspond à la regex','est vide','n\'est pas vide','est supérieur à','est inférieur à'),default:'contient',affects:true},
+    {key:'right',label:'Valeur de comparaison',type:'text',required:true,showIf:c=>c.op!=='est vide'&&c.op!=='n\'est pas vide'},
+    {key:'caseSensitive',label:'Sensible à la casse',type:'toggle',default:false}
+  ]},
+  function:{fields:[
+    {key:'language',label:'Langage',type:'select',options:opt('JavaScript','Python'),default:'JavaScript'},
+    {key:'inputs',label:'Entrées (une par ligne : nom = valeur)',type:'textarea',rows:3,placeholder:'texte = {{trigger.text}}\nnom = {{trigger.name}}',help:'Accessibles dans le code via inputs.nom'},
+    {key:'code',label:'Code',type:'code',rows:10,required:true,default:'// inputs.texte, inputs.nom…\nreturn { result: inputs.texte };'}
+  ]},
+  automation:{fields:[
+    {key:'kind',label:'Type d\'automation',type:'select',options:opt('Requête HTTP','Délai','Définir une variable','Boucle sur une liste','Stockage clé/valeur'),default:'Requête HTTP',affects:true},
+    {key:'url',label:'URL',type:'text',required:true,showIf:c=>c.kind==='Requête HTTP',placeholder:'https://api.exemple.com/…'},
+    {key:'method',label:'Méthode',type:'select',options:opt('GET','POST','PUT','PATCH','DELETE'),default:'GET',showIf:c=>c.kind==='Requête HTTP'},
+    {key:'headers',label:'En-têtes (JSON)',type:'code',rows:3,showIf:c=>c.kind==='Requête HTTP',placeholder:'{"Authorization":"Bearer …"}'},
+    {key:'body',label:'Corps (JSON)',type:'code',rows:4,showIf:c=>c.kind==='Requête HTTP'},
+    {key:'duration',label:'Durée',type:'number',required:true,default:5,showIf:c=>c.kind==='Délai'},
+    {key:'unit',label:'Unité',type:'select',options:opt('secondes','minutes','heures'),default:'secondes',showIf:c=>c.kind==='Délai'},
+    {key:'varName',label:'Nom de la variable',type:'text',required:true,showIf:c=>c.kind==='Définir une variable'},
+    {key:'varValue',label:'Valeur',type:'textarea',rows:3,required:true,showIf:c=>c.kind==='Définir une variable'},
+    {key:'listExpr',label:'Liste à parcourir',type:'text',required:true,showIf:c=>c.kind==='Boucle sur une liste',placeholder:'{{function.result}}'},
+    {key:'itemName',label:'Nom de l\'élément courant',type:'text',default:'item',showIf:c=>c.kind==='Boucle sur une liste'},
+    {key:'storeOp',label:'Opération',type:'select',options:opt('Lire','Écrire'),default:'Écrire',showIf:c=>c.kind==='Stockage clé/valeur',affects:true},
+    {key:'storeKey',label:'Clé',type:'text',required:true,showIf:c=>c.kind==='Stockage clé/valeur'},
+    {key:'storeValue',label:'Valeur',type:'textarea',rows:2,required:true,showIf:c=>c.kind==='Stockage clé/valeur'&&c.storeOp==='Écrire'}
+  ]}
+};
+const OUT_VARS = {llm:['text','json'],whatsapp:['message_id'],telegram:['message_id'],mail:['status'],function:['result'],automation:['result','status'],condition:[]};
+
+/* ============================================================
+   ÉTAT
+   ============================================================ */
+const S = {nodes:[],edges:[],sel:null,view:{x:0,y:0,k:1},seq:1,eseq:1};
+const WA = {status:'disconnected',method:'qr',phone:'',backend:'http://localhost:3001',seed:1,code:'',count:20,timer:null,number:''};
+const $ = id=>document.getElementById(id);
+const esc = v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const slug = s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'bloc';
+const nodeById = id=>S.nodes.find(n=>n.id===id);
+const nodeSlug = n=>n.type==='trigger'?'trigger':slug(n.name);
+const fieldsOf = n=>n.type==='trigger'?TRIGGERS[n.trigger].fields:SCHEMAS[n.type].fields;
+const defaultsFor = fields=>{const c={};fields.forEach(f=>{if(f.key)c[f.key]=f.default!==undefined?f.default:(f.type==='toggle'?false:'')});return c};
+const visible = (f,c)=>!f.showIf||f.showIf(c);
+
+function missing(n){
+  const c=n.config,list=[];
+  fieldsOf(n).forEach(f=>{
+    if(!f.required||!visible(f,c))return;
+    if(f.type==='wa-session'){ if(WA.status!=='connected')list.push('Session WhatsApp'); return; }
+    if(!String(c[f.key]??'').trim())list.push(f.label);
+  });
+  return list;
+}
+function summary(n){
+  const c=n.config;
+  switch(n.type){
+    case 'trigger':return n.trigger;
+    case 'llm':return `${c.provider.split(' ')[0]} · ${c.model||'modèle ?'}`;
+    case 'whatsapp':case 'telegram':return c.action;
+    case 'mail':return c.to?`${c.action} → ${c.to}`:c.action;
+    case 'condition':return c.left?`${c.left} ${c.op} ${/vide/.test(c.op)?'':c.right||'…'}`:'Condition à définir';
+    case 'function':return c.language;
+    case 'automation':return c.kind;
+  }
+}
+
+/* ============================================================
+   RENDU DES NŒUDS & LIENS
+   ============================================================ */
+const world=$('world'),container=$('canvas-container'),nodesEl=$('nodes'),edgesEl=$('edges');
+
+function applyView(){
+  world.style.transform=`translate(${S.view.x}px,${S.view.y}px) scale(${S.view.k})`;
+  $('z-label').textContent=Math.round(S.view.k*100)+'%';
+  $('grid').style.backgroundSize=`${20*S.view.k}px ${20*S.view.k}px`;
+  $('grid').style.backgroundPosition=`${S.view.x}px ${S.view.y}px`;
+}
+function renderNodes(){
+  $('empty-state').style.display=S.nodes.length?'none':'flex';
+  nodesEl.innerHTML=S.nodes.map(n=>{
+    const m=TYPE_META[n.type],col=COLORS[n.type],miss=missing(n);
+    const icon=n.type==='trigger'?TRIGGERS[n.trigger].icon:m.icon;
+    const sel=S.sel===n.id;
+    const ports=n.type==='condition'
+      ?`<div class="port-row" style="color:#4ade80">Oui<div class="port out" data-outport="yes" data-nid="${n.id}" style="background:#4ade80">+</div></div>
+         <div class="port-row" style="color:#f87171">Non<div class="port out" data-outport="no" data-nid="${n.id}" style="background:#f87171">+</div></div>`
+      :`<div class="port out" data-outport="out" data-nid="${n.id}" style="background:${col}">+</div>`;
+    return `<div class="node" data-id="${n.id}" style="left:${n.x}px;top:${n.y}px;box-shadow:${sel?`0 0 0 2px ${col},`:'0 0 0 1px #3e4850,'}0 10px 25px rgba(0,0,0,.45)">
+      ${n.type!=='trigger'?`<div class="port in" data-inport="${n.id}"></div>`:''}
+      <div class="head flex items-center gap-2.5 p-3" data-drag="${n.id}" style="border-top:4px solid ${col}">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:${col}33;color:${col}"><span class="material-symbols-outlined text-[18px]">${icon}</span></div>
+        <div class="min-w-0 flex-1"><div class="font-semibold truncate">${esc(n.name)}</div>
+        <div class="font-mono text-[10px] uppercase" style="color:${col}">${m.label}</div></div>
+        <button class="p-1 rounded-md text-outline hover:text-on-surface hover:bg-surface-container-high" data-edit="${n.id}" title="Paramétrer" type="button"><span class="material-symbols-outlined text-[18px]">tune</span></button>
+      </div>
+      <div class="px-3 pb-3 ${n.type==='condition'?'':''}">
+        <p class="text-xs text-on-surface-variant line-clamp-2 break-words">${esc(summary(n))}</p>
+        <div class="mt-2 inline-flex items-center gap-1 text-[11px] font-medium ${miss.length?'text-tertiary':'text-secondary'}">
+          <span class="material-symbols-outlined text-[14px]">${miss.length?'warning':'check_circle'}</span>${miss.length?`${miss.length} champ${miss.length>1?'s':''} à renseigner`:'Configuré'}</div>
+      </div>
+      ${n.type==='condition'?ports:''}
+      ${n.type!=='condition'?ports:''}
+    </div>`;
+  }).join('');
+  renderEdges();
+}
+function portCenter(el){
+  const r=el.getBoundingClientRect(),w=world.getBoundingClientRect(),k=S.view.k;
+  return {x:(r.left+r.width/2-w.left)/k,y:(r.top+r.height/2-w.top)/k};
+}
+function curve(a,b){
+  const dx=Math.max(70,Math.abs(b.x-a.x)/2);
+  return `M${a.x},${a.y} C${a.x+dx},${a.y} ${b.x-dx},${b.y} ${b.x},${b.y}`;
+}
+function renderEdges(){
+  let html='';
+  S.edges.forEach(e=>{
+    const o=nodesEl.querySelector(`[data-outport="${e.port}"][data-nid="${e.from}"]`),i=nodesEl.querySelector(`[data-inport="${e.to}"]`);
+    if(!o||!i)return;
+    const a=portCenter(o),b=portCenter(i),col=e.port==='yes'?'#4ade80':e.port==='no'?'#f87171':'#89ceff';
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    html+=`<path class="edge flow" d="${curve(a,b)}" stroke="${col}" opacity=".85"/>
+      <g class="edge-del" data-del-edge="${e.id}"><circle cx="${mx}" cy="${my}" r="9" fill="#1f1f23" stroke="${col}" stroke-width="1.5"/>
+      <path d="M${mx-3},${my-3}L${mx+3},${my+3}M${mx+3},${my-3}L${mx-3},${my+3}" stroke="#e3e2e6" stroke-width="1.6" stroke-linecap="round"/></g>`;
+  });
+  html+='<path id="tmp-edge" class="edge" stroke="#4fdbc8" stroke-dasharray="4 4" d="" style="display:none"/>';
+  edgesEl.innerHTML=html;
+}
+
+/* ============================================================
+   COORDONNÉES, PAN, ZOOM
+   ============================================================ */
+function toWorld(cx,cy){const r=container.getBoundingClientRect();return {x:(cx-r.left-S.view.x)/S.view.k,y:(cy-r.top-S.view.y)/S.view.k};}
+function zoomAt(f,cx,cy){
+  const r=container.getBoundingClientRect();
+  const nk=Math.min(2,Math.max(.3,S.view.k*f)),px=(cx??r.left+r.width/2)-r.left,py=(cy??r.top+r.height/2)-r.top;
+  S.view.x=px-(px-S.view.x)*(nk/S.view.k);S.view.y=py-(py-S.view.y)*(nk/S.view.k);S.view.k=nk;applyView();save();
+}
+function fit(){
+  if(!S.nodes.length)return;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  S.nodes.forEach(n=>{const el=nodesEl.querySelector(`[data-id="${n.id}"]`),h=el?el.offsetHeight:140;x0=Math.min(x0,n.x);y0=Math.min(y0,n.y);x1=Math.max(x1,n.x+NODE_W);y1=Math.max(y1,n.y+h);});
+  const r=container.getBoundingClientRect(),pw=$('panel').style.transform==='translateX(0px)'?400:0;
+  const k=Math.min(1.1,(r.width-pw-120)/(x1-x0),(r.height-160)/(y1-y0));
+  S.view.k=Math.max(.3,k);S.view.x=(r.width-pw-(x1-x0)*S.view.k)/2-x0*S.view.k;S.view.y=(r.height-(y1-y0)*S.view.k)/2-y0*S.view.k;applyView();renderEdges();save();
+}
+container.addEventListener('wheel',e=>{if(e.target.closest('#panel,#palette'))return;e.preventDefault();zoomAt(e.deltaY<0?1.1:1/1.1,e.clientX,e.clientY);renderEdges();},{passive:false});
+$('z-in').onclick=()=>{zoomAt(1.2);renderEdges()};$('z-out').onclick=()=>{zoomAt(1/1.2);renderEdges()};$('z-fit').onclick=fit;
+
+/* ============================================================
+   INTERACTIONS (déplacer, relier, panoramique)
+   ============================================================ */
+let drag=null;
+container.addEventListener('pointerdown',e=>{
+  if(e.target.closest('#panel,#palette,.edge-del')&&!e.target.closest('.edge-del'))return;
+  const del=e.target.closest('[data-del-edge]');
+  if(del){S.edges=S.edges.filter(x=>x.id!==del.dataset.delEdge);renderEdges();save();return;}
+  if(e.target.closest('#z-in,#z-out,#z-fit,#btn-add-block,#btn-empty-create'))return;
+  const out=e.target.closest('[data-outport]');
+  if(out){e.preventDefault();drag={type:'conn',from:out.dataset.nid,port:out.dataset.outport,el:out,sx:e.clientX,sy:e.clientY,moved:false};return;}
+  if(e.target.closest('[data-edit]'))return;
+  const head=e.target.closest('[data-drag]');
+  if(head){const n=nodeById(head.dataset.drag);drag={type:'node',n,ox:n.x,oy:n.y,sx:e.clientX,sy:e.clientY,moved:false};select(n.id,false);return;}
+  const nd=e.target.closest('.node');
+  if(nd){select(nd.dataset.id,false);return;}
+  closePalette();
+  drag={type:'pan',vx:S.view.x,vy:S.view.y,sx:e.clientX,sy:e.clientY,moved:false};container.classList.add('panning');
+});
+window.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;
+  if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;
+  if(drag.type==='pan'){S.view.x=drag.vx+dx;S.view.y=drag.vy+dy;applyView();}
+  else if(drag.type==='node'){
+    drag.n.x=drag.ox+dx/S.view.k;drag.n.y=drag.oy+dy/S.view.k;
+    const el=nodesEl.querySelector(`[data-id="${drag.n.id}"]`);el.style.left=drag.n.x+'px';el.style.top=drag.n.y+'px';renderEdges();
+  }else if(drag.type==='conn'&&drag.moved){
+    const t=$('tmp-edge'),a=portCenter(drag.el),b=toWorld(e.clientX,e.clientY);
+    t.style.display='';t.setAttribute('d',curve(a,b));
+  }
+});
+window.addEventListener('pointerup',e=>{
+  if(!drag)return;const d=drag;drag=null;container.classList.remove('panning');
+  if(d.type==='node'&&d.moved)save();
+  if(d.type==='conn'){
+    const t=$('tmp-edge');if(t)t.style.display='none';
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    const target=under?.closest('[data-inport]')?.dataset.inport||(under?.closest('.node')&&nodeById(under.closest('.node').dataset.id).type!=='trigger'?under.closest('.node').dataset.id:null);
+    if(d.moved&&target){addEdge(d.from,d.port,target);}
+    else{openPalette({from:d.from,port:d.port,screen:{x:e.clientX,y:e.clientY},world:d.moved?toWorld(e.clientX,e.clientY):null});}
+  }
+});
+function addEdge(from,port,to){
+  if(from===to||nodeById(to).type==='trigger')return;
+  if(S.edges.some(x=>x.from===from&&x.port===port&&x.to===to))return;
+  S.edges.push({id:'e'+(S.eseq++),from,port,to});renderEdges();renderPanel();save();
+}
+
+/* ============================================================
+   PALETTE D'AJOUT DE BLOCS
+   ============================================================ */
+let paletteCtx=null;
+function openPalette(ctx){
+  paletteCtx=ctx;const p=$('palette'),r=container.getBoundingClientRect();
+  p.innerHTML=PALETTE.map(g=>`<div class="px-2 pt-2 pb-1 text-[11px] uppercase tracking-wider text-outline">${g.group}</div>`+g.items.map(t=>`
+    <button type="button" data-add="${t}" class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-surface-container-highest text-left">
+      <span class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:${COLORS[t]}33;color:${COLORS[t]}"><span class="material-symbols-outlined text-[18px]">${TYPE_META[t].icon}</span></span>
+      <span><span class="block font-semibold">${TYPE_META[t].label}</span><span class="block text-xs text-outline">${PALETTE_DESC[t]}</span></span></button>`).join('')).join('');
+  p.classList.remove('hidden');
+  const sx=ctx.screen?ctx.screen.x:r.left+r.width/2-120,sy=ctx.screen?ctx.screen.y:r.top+120;
+  p.style.left=Math.max(8,Math.min(sx-r.left+12,r.width-250))+'px';
+  p.style.top=Math.max(8,Math.min(sy-r.top-20,r.height-p.offsetHeight-8))+'px';
+}
+function closePalette(){$('palette').classList.add('hidden');paletteCtx=null;}
+$('palette').addEventListener('click',e=>{
+  const b=e.target.closest('[data-add]');if(!b)return;
+  const ctx=paletteCtx;closePalette();
+  const src=ctx&&ctx.from?nodeById(ctx.from):null;
+  let x,y;
+  if(ctx&&ctx.world){x=ctx.world.x-NODE_W/2;y=ctx.world.y-20;}
+  else if(src){const n=S.edges.filter(ed=>ed.from===src.id).length;x=src.x+NODE_W+110;y=src.y+n*190+(ctx.port==='no'?190:0);}
+  else{const c=toWorld(container.getBoundingClientRect().left+container.clientWidth/2-150,container.getBoundingClientRect().top+container.clientHeight/2-60);x=c.x;y=c.y;}
+  const node=createNode(b.dataset.add,x,y);
+  if(src)S.edges.push({id:'e'+(S.eseq++),from:src.id,port:ctx.port||'out',to:node.id});
+  renderNodes();select(node.id,true);save();
+});
+$('btn-add-block').onclick=e=>{
+  if(!S.nodes.length){toast('Créez d\'abord un agent avec son déclencheur.');return;}
+  const sel=S.sel&&nodeById(S.sel);
+  const r=e.currentTarget.getBoundingClientRect();
+  openPalette({from:sel?sel.id:null,port:sel&&sel.type==='condition'?'yes':'out',screen:{x:r.left,y:r.top-340}});
+};
+
+function createNode(type,x,y){
+  const base=TYPE_META[type].label;let name=base,i=2;
+  while(S.nodes.some(n=>n.name===name))name=`${base} ${i++}`;
+  const n={id:'n'+(S.seq++),type,name,x,y,config:defaultsFor(SCHEMAS[type].fields)};
+  S.nodes.push(n);return n;
+}
+
+/* ============================================================
+   PANNEAU DE CONFIGURATION
+   ============================================================ */
+const INPUT='w-full bg-surface-container-lowest text-on-surface px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary';
+let lastFocus=null;
+function select(id,open){
+  S.sel=id;renderNodes();
+  if(open)openPanel();else if($('panel').dataset.open==='1')renderPanel();
+}
+function openPanel(){$('panel').dataset.open='1';$('panel').style.transform='translateX(0px)';renderPanel();}
+function closePanel(){$('panel').dataset.open='0';$('panel').style.transform='translateX(105%)';}
+function upstreamVars(n){
+  const seen=new Set(),out=[],stack=[n.id];
+  while(stack.length){const id=stack.pop();S.edges.filter(e=>e.to===id).forEach(e=>{if(!seen.has(e.from)){seen.add(e.from);stack.push(e.from);}});}
+  seen.forEach(id=>{const u=nodeById(id);const keys=u.type==='trigger'?TRIGGERS[u.trigger].vars:OUT_VARS[u.type];keys.forEach(k=>out.push(`{{${nodeSlug(u)}.${k}}}`));});
+  return out;
+}
+function fieldHTML(f,n){
+  const c=n.config;if(f.type==='wa-session')return waHTML();
+  const v=c[f.key],id='f_'+f.key;
+  let input='';
+  const attr=`data-field="${f.key}" id="${id}"`;
+  if(f.type==='select')input=`<select ${attr} class="${INPUT}">${f.options.map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  else if(f.type==='textarea')input=`<textarea ${attr} rows="${f.rows||3}" class="${INPUT} resize-y" placeholder="${esc(f.placeholder||'')}">${esc(v)}</textarea>`;
+  else if(f.type==='code')input=`<textarea ${attr} rows="${f.rows||6}" spellcheck="false" class="${INPUT} resize-y font-mono text-xs leading-relaxed" placeholder="${esc(f.placeholder||'')}">${esc(v)}</textarea>`;
+  else if(f.type==='toggle')return `<label class="flex items-center justify-between gap-3 py-1 cursor-pointer"><span class="font-semibold">${f.label}</span><input type="checkbox" class="switch" ${attr} ${v?'checked':''}/></label>`;
+  else input=`<input ${attr} type="${f.type}" ${f.step?`step="${f.step}"`:''} value="${esc(v)}" class="${INPUT}" placeholder="${esc(f.placeholder||'')}" autocomplete="off"/>`;
+  return `<div><label class="block font-semibold mb-1.5" for="${id}">${f.label}${f.required?'<span class="text-error ml-0.5">*</span>':''}</label>${input}${f.help?`<p class="text-xs text-outline mt-1">${f.help}</p>`:''}</div>`;
+}
+function renderPanel(){
+  const p=$('panel'),n=nodeById(S.sel);
+  if(!n){closePanel();return;}
+  const col=COLORS[n.type],m=TYPE_META[n.type],scrollTop=p.querySelector('#panel-body')?.scrollTop||0;
+  const fields=fieldsOf(n).filter(f=>visible(f,n.config));
+  const vars=n.type!=='trigger'?upstreamVars(n):[];
+  const hasText=fields.some(f=>['text','textarea','code'].includes(f.type));
+  p.innerHTML=`
+    <div class="px-5 py-4 bg-surface-container-high flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style="background:${col}33;color:${col}"><span class="material-symbols-outlined text-[20px]">${n.type==='trigger'?TRIGGERS[n.trigger].icon:m.icon}</span></div>
+      <div class="min-w-0"><h2 class="font-semibold text-base truncate">${esc(n.name)}</h2><p class="text-xs text-outline">${n.type==='trigger'?'Agent · déclencheur':m.label}</p></div></div>
+      <div class="flex items-center gap-1">
+        ${n.type!=='trigger'?`<button id="p-del" class="p-1.5 rounded-lg text-error hover:bg-surface-container-highest" title="Supprimer le bloc" type="button"><span class="material-symbols-outlined text-[20px]">delete</span></button>`:''}
+        <button id="p-close" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-highest" type="button"><span class="material-symbols-outlined text-[20px]">close</span></button></div>
+    </div>
+    <div id="panel-body" class="flex-1 overflow-y-auto p-5 space-y-4">
+      <div><label class="block font-semibold mb-1.5" for="f__name">${n.type==='trigger'?'Nom de l\'agent':'Nom du bloc'}</label>
+        <input id="f__name" data-scope="name" value="${esc(n.name)}" class="${INPUT}"/>
+        ${n.type!=='trigger'?`<p class="text-xs text-outline mt-1">Variable : <span class="font-mono">{{${esc(nodeSlug(n))}.…}}</span></p>`:''}</div>
+      ${n.type==='trigger'?`<div><label class="block font-semibold mb-1.5" for="f__trigger">Type de déclencheur</label>
+        <select id="f__trigger" data-scope="trigger" class="${INPUT}">${Object.keys(TRIGGERS).map(t=>`<option ${t===n.trigger?'selected':''}>${t}</option>`).join('')}</select></div>`:''}
+      <div class="h-px bg-outline-variant"></div>
+      ${fields.map(f=>fieldHTML(f,n)).join('')}
+      ${n.type!=='trigger'&&hasText?`<div><div class="text-xs uppercase tracking-wider text-outline mb-2">Variables disponibles</div>
+        ${vars.length?`<div class="flex flex-wrap gap-1.5">${vars.map(v=>`<button type="button" data-var="${esc(v)}" class="chip px-2 py-1 rounded-md bg-surface-container-highest hover:bg-primary-container hover:text-on-primary-container font-mono text-[11px]">${esc(v)}</button>`).join('')}</div>
+        <p class="text-xs text-outline mt-1.5">Cliquez dans un champ texte, puis sur une variable pour l'insérer.</p>`
+        :`<p class="text-xs text-outline">Reliez ce bloc à un bloc précédent pour utiliser ses données.</p>`}</div>`:''}
+    </div>`;
+  p.querySelector('#panel-body').scrollTop=scrollTop;
+  if(WA.status==='qr')drawQR($('wa-qr'));
+}
+$('panel').addEventListener('click',e=>{
+  if(e.target.closest('#p-close')){closePanel();return;}
+  if(e.target.closest('#p-del')){deleteNode(S.sel);return;}
+  const v=e.target.closest('[data-var]');
+  if(v){
+    const el=lastFocus&&document.body.contains(lastFocus)?lastFocus:$('panel').querySelector('textarea,input[type=text]');
+    if(!el)return;
+    const s=el.selectionStart??el.value.length,t=el.selectionEnd??s;
+    el.value=el.value.slice(0,s)+v.dataset.var+el.value.slice(t);
+    el.focus();el.setSelectionRange(s+v.dataset.var.length,s+v.dataset.var.length);
+    el.dispatchEvent(new Event('input',{bubbles:true}));return;
+  }
+  const wa=e.target.closest('[data-wa]');if(wa)waAction(wa.dataset.wa);
+});
+$('panel').addEventListener('focusin',e=>{if(e.target.matches('textarea,input[type=text],input[type=number]'))lastFocus=e.target;});
+function onPanelChange(e){
+  const t=e.target,n=nodeById(S.sel);if(!n)return;
+  if(t.dataset.waField){WA[t.dataset.waField]=t.value;if(t.dataset.waField==='method'){refreshWa();}return;}
+  if(t.dataset.scope==='name'){n.name=t.value||TYPE_META[n.type].label;renderNodes();$('panel').querySelector('h2').textContent=n.name;save();return;}
+  if(t.dataset.scope==='trigger'){if(e.type!=='change')return;n.trigger=t.value;n.config=defaultsFor(TRIGGERS[n.trigger].fields);renderNodes();renderPanel();save();return;}
+  const key=t.dataset.field;if(!key)return;
+  const f=fieldsOf(n).find(x=>x.key===key);
+  n.config[key]=t.type==='checkbox'?t.checked:t.type==='number'?(t.value===''?'':Number(t.value)):t.value;
+  if(f&&f.affects&&e.type==='change'){renderPanel();}
+  renderNodes();save();
+}
+$('panel').addEventListener('input',onPanelChange);
+$('panel').addEventListener('change',onPanelChange);
+
+function deleteNode(id){
+  const n=nodeById(id);if(!n||n.type==='trigger')return;
+  S.nodes=S.nodes.filter(x=>x.id!==id);S.edges=S.edges.filter(e=>e.from!==id&&e.to!==id);
+  S.sel=null;closePanel();renderNodes();save();
+}
+nodesEl.addEventListener('click',e=>{const b=e.target.closest('[data-edit]');if(b)select(b.dataset.edit,true);});
+nodesEl.addEventListener('dblclick',e=>{const nd=e.target.closest('.node');if(nd)select(nd.dataset.id,true);});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closePalette();closeModal('agent-modal');}
+  if((e.key==='Delete'||e.key==='Backspace')&&S.sel&&!e.target.matches('input,textarea,select'))deleteNode(S.sel);
+});
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#palette,#btn-add-block,[data-outport]'))closePalette();},true);
+
+/* ============================================================
+   SESSION WHATSAPP (Baileys) — partagée par tous les blocs WhatsApp
+   ============================================================ */
+function waHTML(){
+  const st={disconnected:['Non connecté','#f87171'],qr:['En attente du scan','#fbbf24'],pairing:['En attente du code','#fbbf24'],connected:['Connecté','#4ade80']}[WA.status];
+  let body='';
+  if(WA.status==='connected'){
+    body=`<div class="flex items-center gap-2 p-3 rounded-lg bg-surface-container-lowest"><span class="material-symbols-outlined text-[#4ade80]">verified</span>
+      <div class="min-w-0"><div class="font-semibold">Session active</div><div class="text-xs text-outline truncate">Numéro : ${esc(WA.number||'détecté après le scan')}</div></div></div>
+      <button data-wa="disconnect" type="button" class="w-full px-3 py-2 rounded-lg bg-surface-container-highest hover:bg-surface-container-high text-error font-medium">Déconnecter la session</button>`;
+  }else{
+    body=`<div><label class="block text-xs font-semibold mb-1">Méthode de connexion</label>
+      <select data-wa-field="method" class="${INPUT}"><option value="qr" ${WA.method==='qr'?'selected':''}>Scanner un QR code</option><option value="pairing" ${WA.method==='pairing'?'selected':''}>Code de jumelage (par numéro)</option></select></div>
+      <div><label class="block text-xs font-semibold mb-1">Numéro WhatsApp du compte ${WA.method==='pairing'?'<span class="text-error">*</span>':'(optionnel)'}</label>
+      <input data-wa-field="phone" type="text" value="${esc(WA.phone)}" placeholder="212612345678 (format international, sans +)" class="${INPUT}"/></div>
+      <div><label class="block text-xs font-semibold mb-1">URL du serveur Baileys</label>
+      <input data-wa-field="backend" type="text" value="${esc(WA.backend)}" class="${INPUT} font-mono text-xs"/></div>
+      ${WA.status==='qr'?`<div class="flex flex-col items-center gap-2 p-3 rounded-lg bg-surface-container-lowest"><canvas id="wa-qr" width="222" height="222" class="rounded-md"></canvas>
+        <div class="text-xs text-outline text-center">WhatsApp → Appareils connectés → Connecter un appareil.<br/>Nouveau QR dans <span id="wa-count" class="font-mono">${WA.count}</span> s</div></div>`:''}
+      ${WA.status==='pairing'?`<div class="p-3 rounded-lg bg-surface-container-lowest text-center"><div class="text-xs text-outline mb-1">Saisissez ce code dans WhatsApp → Appareils connectés → Connecter avec un numéro</div><div class="font-mono text-2xl tracking-widest font-semibold">${esc(WA.code)}</div></div>`:''}
+      <div class="flex gap-2">
+        <button data-wa="connect" type="button" class="flex-1 px-3 py-2 rounded-lg bg-[#25d366] text-black font-semibold hover:opacity-90">${WA.status==='disconnected'?(WA.method==='qr'?'Générer le QR code':'Obtenir le code'):'Régénérer'}</button>
+        ${WA.status!=='disconnected'?`<button data-wa="simulate" type="button" class="px-3 py-2 rounded-lg bg-surface-container-highest hover:bg-surface-container-high text-xs" title="Démo : simule le scan réussi">Simuler le scan</button>`:''}
+      </div>
+      <p class="text-[11px] text-outline">Mode démo : le QR affiché est factice. Branchez <span class="font-mono">waBackend</span> (voir le script) sur votre serveur Baileys pour un vrai QR.</p>`;
+  }
+  return `<div id="wa-box" class="rounded-xl ring-1 ring-outline-variant p-3 space-y-3">
+    <div class="flex items-center justify-between"><div class="flex items-center gap-2 font-semibold"><span class="material-symbols-outlined text-[#25d366] text-[20px]">chat</span>Session WhatsApp</div>
+    <span class="flex items-center gap-1.5 text-xs"><span class="w-2 h-2 rounded-full" style="background:${st[1]}"></span>${st[0]}</span></div>${body}</div>`;
+}
+function refreshWa(){
+  const b=$('wa-box');if(b){b.outerHTML=waHTML();}
+  if(WA.status==='qr')drawQR($('wa-qr'));
+  renderNodes();
+}
+/* --- Point d'intégration réel : remplacez ces fonctions par des appels à votre serveur Baileys ---
+   connect  : POST {backend}/sessions/default/connect  { method, phone }  puis écouter le flux (SSE/WebSocket) {backend}/sessions/default/events
+              événements attendus : {type:'qr', data:'<chaîne QR>'}, {type:'pairing_code', data:'ABCD-1234'}, {type:'connected', number:'212…'}
+   disconnect : DELETE {backend}/sessions/default                                                                         */
+const waBackend={
+  connect(){WA.status=WA.method==='qr'?'qr':'pairing';WA.seed=Date.now();WA.code=genCode();WA.count=20;startQrTimer();},
+  disconnect(){WA.status='disconnected';WA.number='';stopQrTimer();}
+};
+function genCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<8;i++)s+=a[Math.floor(Math.random()*a.length)];return s.slice(0,4)+'-'+s.slice(4);}
+function stopQrTimer(){if(WA.timer){clearInterval(WA.timer);WA.timer=null;}}
+function startQrTimer(){
+  stopQrTimer();if(WA.method!=='qr')return;
+  WA.timer=setInterval(()=>{
+    if(WA.status!=='qr'){stopQrTimer();return;}
+    WA.count--;if(WA.count<=0){WA.count=20;WA.seed=Date.now();drawQR($('wa-qr'));}
+    const c=$('wa-count');if(c)c.textContent=WA.count;
+  },1000);
+}
+function waAction(a){
+  if(a==='connect'){
+    if(WA.method==='pairing'&&!WA.phone.trim()){toast('Renseignez le numéro pour le code de jumelage.');return;}
+    waBackend.connect();
+  }else if(a==='simulate'){stopQrTimer();WA.status='connected';WA.number=WA.phone.trim()?'+'+WA.phone.replace(/\D/g,''):'';toast('Session WhatsApp connectée (démo).');}
+  else if(a==='disconnect'){waBackend.disconnect();}
+  refreshWa();
+}
+function drawQR(cv){
+  if(!cv)return;const N=29,sc=6,q=4,ctx=cv.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);ctx.fillStyle='#000';
+  let s=WA.seed%2147483647||1;const rnd=()=>(s=s*48271%2147483647)/2147483647;
+  const finder=(x,y)=>{for(let i=0;i<7;i++)for(let j=0;j<7;j++){const edge=i===0||j===0||i===6||j===6,core=i>=2&&i<=4&&j>=2&&j<=4;if(edge||core)ctx.fillRect((x+i+q)*sc,(y+j+q)*sc,sc,sc);}};
+  const inFinder=(i,j)=>(i<8&&j<8)||(i>=N-8&&j<8)||(i<8&&j>=N-8);
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){if(!inFinder(i,j)&&rnd()>.52)ctx.fillRect((i+q)*sc,(j+q)*sc,sc,sc);}
+  finder(0,0);finder(N-7,0);finder(0,N-7);
+}
+
+/* ============================================================
+   MODALES, TOAST, PERSISTANCE, VALIDATION
+   ============================================================ */
+function openModal(id){const m=$(id);m.classList.remove('hidden');m.classList.add('flex');}
+function closeModal(id){const m=$(id);m.classList.add('hidden');m.classList.remove('flex');}
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+$('agent-trigger').innerHTML=Object.keys(TRIGGERS).map(t=>`<option>${t}</option>`).join('');
+function startCreate(){
+  if(S.nodes.length&&!confirm('Créer un nouvel agent remplacera le workflow actuel. Continuer ?'))return;
+  openModal('agent-modal');setTimeout(()=>$('agent-name').focus(),50);
+}
+$('btn-create-agent').onclick=startCreate;$('btn-empty-create').onclick=startCreate;
+$('agent-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const name=$('agent-name').value.trim()||'Nouvel agent',trigger=$('agent-trigger').value;
+  const r=container.getBoundingClientRect();
+  S.nodes=[];S.edges=[];S.seq=1;S.eseq=1;S.view={x:0,y:0,k:1};
+  const n={id:'n'+(S.seq++),type:'trigger',name,trigger,x:110,y:Math.max(80,r.height/2-90),config:defaultsFor(TRIGGERS[trigger].fields)};
+  S.nodes.push(n);closeModal('agent-modal');$('agent-form').reset();applyView();renderNodes();select(n.id,true);save();
+});
+let toastT;
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.add('hidden'),3500);}
+$('btn-validate').onclick=()=>{
+  if(!S.nodes.length){toast('Aucun agent à valider.');return;}
+  const issues=S.nodes.map(n=>({n,m:missing(n)})).filter(x=>x.m.length);
+  const orphan=S.nodes.filter(n=>n.type!=='trigger'&&!S.edges.some(e=>e.to===n.id));
+  if(!issues.length&&!orphan.length){toast('Workflow valide : tous les blocs sont configurés et reliés.');return;}
+  const lines=issues.map(x=>`${x.n.name} : ${x.m.join(', ')}`).concat(orphan.map(n=>`${n.name} : non relié`));
+  toast(lines.slice(0,4).join('  •  ')+(lines.length>4?` … (+${lines.length-4})`:''));
+};
+function serialize(strip){
+  const nodes=S.nodes.map(n=>{
+    const c={...n.config};
+    if(strip)fieldsOf(n).forEach(f=>{if(f.type==='password')delete c[f.key];});
+    return {...n,config:c};
+  });
+  return {version:1,nodes,edges:S.edges,view:S.view};
+}
+$('btn-export').onclick=()=>{
+  const blob=new Blob([JSON.stringify(serialize(true),null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='workflow.json';a.click();URL.revokeObjectURL(a.href);
+  toast('Workflow exporté (clés et mots de passe exclus).');
+};
+let saveT;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem('synapse-flow',JSON.stringify({...serialize(true),seq:S.seq,eseq:S.eseq}));}catch(_){}},300);}
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem('synapse-flow')||'null');if(!d||!d.nodes)return;
+    S.nodes=d.nodes.map(n=>({...n,config:{...defaultsFor(fieldsOf(n)),...n.config}}));S.edges=d.edges||[];S.view=d.view||S.view;S.seq=d.seq||S.nodes.length+1;S.eseq=d.eseq||S.edges.length+1;
+  }catch(_){}
+}
+load();applyView();renderNodes();
+window.addEventListener('resize',renderEdges);
+</script>
+</body></html>

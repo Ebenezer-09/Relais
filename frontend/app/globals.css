@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* Relais : thème clair, une seule couleur d'accent */
+@theme {
+  --color-canvas: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-subtle: #f7f8fa;
+  --color-line: #e4e7eb;
+  --color-line-strong: #cdd2d8;
+  --color-ink: #16191d;
+  --color-muted: #5b6470;
+  --color-faint: #8a929c;
+  --color-accent: #0e7c66;
+  --color-accent-hover: #0b6553;
+  --color-accent-soft: #e6f2ef;
+  --color-danger: #c8372d;
+  --color-warn: #b45309;
+  --color-ok: #15803d;
+  --font-sans: var(--font-plex), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/* Tailwind v4 met les boutons en cursor:default */
+button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+/* v4 donne à text-sm un ratio de line-height ; on garde 20px hérité par les petites tailles */
+body.text-sm { line-height: 1.25rem; }
+
+html, body { margin: 0; padding: 0; }
+body { overscroll-behavior: none; overflow: hidden; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #cdd2d8; border-radius: 3px; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.canvas { touch-action: none; cursor: grab; }
+.canvas.panning { cursor: grabbing; }
+.world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+.node {
+  position: absolute; width: 264px; border-radius: 10px; background: #fff; cursor: default;
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 2px 6px rgba(16, 24, 40, .05);
+}
+.node.selected { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft), 0 2px 6px rgba(16, 24, 40, .06); }
+.node .head { cursor: grab; touch-action: none; }
+.node .head:active { cursor: grabbing; }
+
+.port {
+  position: absolute; width: 14px; height: 14px; border-radius: 9999px; border: 2px solid #fff;
+  display: flex; align-items: center; justify-content: center; cursor: crosshair; touch-action: none;
+  color: #fff; font-size: 11px; font-weight: 600; line-height: 1; z-index: 5;
+  box-shadow: 0 0 0 1px var(--color-line-strong); transition: transform .12s;
+}
+.port.in { left: -7px; top: 22px; background: #fff; border-color: var(--color-line-strong); box-shadow: none; }
+.port.in::before { content: ""; position: absolute; inset: -8px; }
+.port.out { right: -7px; top: 22px; }
+.port:hover { transform: scale(1.3); }
+.port-row { position: relative; height: 30px; display: flex; align-items: center; justify-content: flex-end; padding: 0 14px; font-size: 12px; font-weight: 500; border-top: 1px solid var(--color-line); }
+.port-row .port { right: -7px; top: 8px; }
+
+svg.edges { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.edge { fill: none; stroke-width: 2; stroke-linecap: round; }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; }
+.edge-del { pointer-events: all; cursor: pointer; opacity: 0; transition: opacity .12s; }
+.edge-group:hover .edge-del { opacity: 1; }
+
+.panel { transition: transform .2s ease; }
+@media (prefers-reduced-motion: reduce) { .panel, .port, .edge-del { transition: none; } }
+
+.switch { appearance: none; width: 34px; height: 20px; border-radius: 9999px; background: #d5d9de; position: relative; cursor: pointer; transition: .15s; flex-shrink: 0; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: .15s; }
+.switch:checked { background: var(--color-accent); }
+.switch:checked::after { left: 16px; }
+
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'opsz' 20; user-select: none; }

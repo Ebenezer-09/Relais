@@ -1,0 +1,34 @@
+# Blueprint Render : New → Blueprint → choisir ce dépôt
+services:
+  - type: web
+    name: relais-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Payant (Starter) obligatoire : l'offre gratuite s'endort après 15 min (WhatsApp, Telegram,
+    # planifications s'arrêtent) et n'a pas de disque (base et session WhatsApp perdues à chaque redémarrage)
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /api/health
+    numInstances: 1 # une seule instance : WhatsApp et les déclencheurs tournent dans le processus
+    disk:
+      name: relais-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /data
+      - key: ADMIN_USERNAME # à saisir : votre nom de connexion
+        sync: false
+      - key: ADMIN_PIN # à saisir : votre code à 4 chiffres
+        sync: false
+      - key: API_KEY # signe les sessions, générée par Render
+        generateValue: true
+      - key: ENCRYPTION_KEY # à saisir : openssl rand -hex 32 (ne la perdez jamais)
+        sync: false
+      - key: PUBLIC_URL # à saisir : https://relais-api.onrender.com (l'URL de ce service)
+        sync: false
+      - key: CORS_ORIGIN # à saisir : https://votre-projet.vercel.app (l'URL du frontend)
+        sync: false
