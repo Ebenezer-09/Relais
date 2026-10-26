@@ -46,9 +46,12 @@ export function FieldControl({ field: f, value, vars = [], onChange }: { field: 
     <FormField label={f.label} htmlFor={id} required={f.required} help={f.help}>
       {control}
       {friendly && (
-        <Select aria-label={`Insérer une donnée dans « ${f.label} »`} className="mt-1.5 py-1 text-xs text-muted" value=""
-          options={[{ value: '', label: '＋ Insérer une donnée…' }, ...vars.map((v) => ({ value: v.label, label: v.label }))]}
-          onChange={(e) => e.target.value && insert(e.target.value)} />
+        <div className="mt-1.5 flex flex-wrap gap-1" aria-label={`Ajouter une donnée dans « ${f.label} »`}>
+          {vars.map((v) => (
+            <button key={v.value} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(v.label)}
+              className="px-2 py-0.5 rounded-md border border-line bg-subtle text-xs text-muted hover:border-accent hover:bg-accent-soft hover:text-accent">+ {v.label}</button>
+          ))}
+        </div>
       )}
     </FormField>
   );

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { COLORS, TRIGGER_NAMES, TRIGGERS, TYPE_META } from '@/lib/schema';
 import { useFlow } from '@/lib/store';
 import type { TriggerName } from '@/lib/types';
@@ -11,6 +12,7 @@ import { IconTile } from './ui/icon-tile';
 
 export function ConfigPanel() {
   const { flow, sel, panelOpen, lastRun, webhook, toast, closePanel, deleteNode, setName, setConfig, setTrigger } = useFlow();
+  const [advanced, setAdvanced] = useState(false);
   const n = flow.nodes.find((x) => x.id === sel);
   const open = panelOpen && !!n;
 
@@ -44,9 +46,14 @@ export function ConfigPanel() {
           )}
           <div className="h-px bg-line" />
 
-          {fields.map((f, i) => (
+          {fields.filter((f) => advanced || !f.advanced).map((f, i) => (
             <FieldControl key={f.key ?? `${f.type}-${i}`} field={f} value={f.key ? n.config[f.key] : undefined} vars={vars} onChange={(v) => setConfig(n.id, f.key!, v)} />
           ))}
+          {fields.some((f) => f.advanced) && (
+            <button type="button" aria-expanded={advanced} onClick={() => setAdvanced((a) => !a)} className="text-xs text-muted hover:text-accent">
+              {advanced ? '− Masquer les options avancées' : '+ Options avancées (facultatif)'}
+            </button>
+          )}
 
           {isTrigger && n.trigger === 'API / Webhook' && (
             <div>

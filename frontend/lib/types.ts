@@ -46,6 +46,8 @@ export interface FieldDef {
   help?: string;
   step?: number;
   showIf?: (c: Config) => boolean;
+  /** Masqué derrière « Options avancées » */
+  advanced?: boolean;
 }
 
 export type WaStatus = 'disconnected' | 'connecting' | 'qr' | 'pairing' | 'connected';
