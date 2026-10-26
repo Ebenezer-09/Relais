@@ -1,3 +1,4 @@
+import { workflows } from '../db.js';
 import type { NodeHandler } from '../engine/nodeTypes.js';
 import { apiError, postJson } from '../services/http.js';
 import { field, loadCred, need } from './util.js';
@@ -16,10 +17,11 @@ export async function tgCall(token: string, method: string, body: unknown, timeo
 }
 
 export const telegram: NodeHandler = {
-  async run({ config: c }) {
-    const cred = loadCred(c);
-    const token = need(field(c, cred, 'botToken'), 'Token du bot');
-    const chatId = need(String(c.chatId ?? '').trim(), 'Chat ID');
+  async run({ config: c, workflowId, trigger }) {
+    // vides par défaut : même bot que le déclencheur Telegram, et réponse dans la conversation reçue
+    const t = workflows.get(workflowId)?.graph.nodes.find((n) => n.type === 'trigger' && n.trigger === 'Message Telegram');
+    const token = need(field(c, loadCred(c), 'botToken') || (t ? field(t.config, loadCred(t.config), 'botToken') : ''), 'Token du bot (Options avancées)');
+    const chatId = need(String(c.chatId ?? '').trim() || String(trigger.chat_id ?? ''), 'Conversation (Options avancées)');
     const action = String(c.action || 'Envoyer un message');
     const pm = c.parseMode === 'Markdown' ? 'Markdown' : c.parseMode === 'HTML' ? 'HTML' : undefined;
     const common = { chat_id: chatId, ...(pm ? { parse_mode: pm } : {}) };

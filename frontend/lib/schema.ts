@@ -42,8 +42,8 @@ export const TRIGGERS: Record<TriggerName, { icon: string; vars: string[]; field
     { key: 'ignoreOwn', label: 'Ignorer mes propres messages', type: 'toggle', default: true },
   ] },
   'Message Telegram': { icon: 'send', vars: ['text', 'chat_id', 'username'], fields: [
-    { key: 'botToken', label: 'Token du bot', type: 'password', required: true, placeholder: '123456:ABC-DEF…', help: 'Obtenu auprès de @BotFather.' },
-    { key: 'allowed', label: 'Chat IDs autorisés (optionnel)', type: 'textarea', rows: 2, placeholder: 'Un ID par ligne' },
+    { key: 'botToken', label: 'Token du bot', type: 'password', required: true, placeholder: '123456:ABC-DEF…', help: 'Dans Telegram, écrivez à @BotFather, envoyez /newbot, puis collez ici le token qu’il vous donne.' },
+    { key: 'allowed', label: 'Chat IDs autorisés', type: 'textarea', rows: 2, placeholder: 'Un ID par ligne', help: 'Vide = tout le monde peut écrire au bot.', advanced: true },
   ] },
   'Email entrant': { icon: 'mail', vars: ['from', 'subject', 'body'], fields: [
     { key: 'credentialId', label: 'Compte Gmail', type: 'google-account', required: true },
@@ -98,8 +98,8 @@ export const SCHEMAS: Record<BlockType, FieldDef[]> = {
   ],
   telegram: [
     { key: 'action', label: 'Action', type: 'select', options: ['Envoyer un message', 'Envoyer une photo', 'Envoyer un document'], default: 'Envoyer un message' },
-    { key: 'botToken', label: 'Token du bot', type: 'password', required: true },
-    { key: 'chatId', label: 'Chat ID', type: 'text', required: true, default: '{{trigger.chat_id}}' },
+    { key: 'botToken', label: 'Token du bot', type: 'password', help: 'Vide = le bot du déclencheur Telegram.', advanced: true },
+    { key: 'chatId', label: 'Conversation (Chat ID)', type: 'text', help: 'Vide = répond dans la conversation du message reçu.', advanced: true },
     { key: 'text', label: 'Message', type: 'textarea', rows: 4, required: true, showIf: (c) => c.action === 'Envoyer un message', placeholder: '{{llm.text}}' },
     { key: 'mediaUrl', label: 'URL du fichier', type: 'text', required: true, showIf: (c) => c.action !== 'Envoyer un message' },
     { key: 'caption', label: 'Légende', type: 'textarea', rows: 2, showIf: (c) => c.action !== 'Envoyer un message' },

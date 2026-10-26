@@ -165,6 +165,19 @@ describe('services', () => {
   test('Telegram : messages longs découpés à 4096', () => {
     assert.deepEqual(chunk('a'.repeat(9000)).map((c) => c.length), [4096, 4096, 808]);
   });
+  test('Telegram : sans réglage, répond avec le bot du déclencheur dans la conversation reçue', async () => {
+    const { workflows } = await import('../src/db.js');
+    const w = workflows.create('Bot', { nodes: [node('t', 'trigger', 'Bot', { botToken: '42:TOK' }, { trigger: 'Message Telegram' }),
+      node('s', 'telegram', 'Telegram', { action: 'Envoyer un message', text: 'Reçu : {{trigger.text}}' })], edges: [edge('t', 's')] });
+    const calls: { url: string; body: any }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body) }); return new Response('{"ok":true,"result":{"message_id":7}}', { headers: { 'content-type': 'application/json' } }); }) as any;
+    try {
+      const ex = await runWorkflow(w, { mode: 'manual', persist: false, triggerItems: [{ text: 'salut', chat_id: '999' }] });
+      assert.equal(ex.status, 'success', ex.error);
+    } finally { globalThis.fetch = real; workflows.remove(w.id); }
+    assert.deepEqual(calls, [{ url: 'https://api.telegram.org/bot42:TOK/sendMessage', body: { chat_id: '999', text: 'Reçu : salut' } }]);
+  });
   test('identifiants chiffrés en base', () => {
     const c = credentials.create('Mon bot', 'telegram', { botToken: '123:SECRET' });
     assert.deepEqual(credentials.getData(c.id), { botToken: '123:SECRET' });
