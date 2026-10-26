@@ -7,3 +7,7 @@ data/
 *.tsbuildinfo
 next-env.d.ts
 client_secret_*.json
+# outils de l’assistant IA (skills installés localement)
+.agents/
+.claude/
+skills-lock.json
