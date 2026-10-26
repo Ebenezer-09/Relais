@@ -249,3 +249,9 @@ describe('API', () => {
     await app.close();
   });
 });
+
+test('Sheets : colonnes « Nom : valeur », nom facultatif', async () => {
+  const { parseColumns } = await import('../src/nodes/sheets.js');
+  assert.deepEqual(parseColumns('Expéditeur : {{trigger.from}}\n\n{{a ? b : c}}\nObjet: Re: salut'), [
+    { name: 'Expéditeur', value: '{{trigger.from}}' }, { name: '', value: '{{a ? b : c}}' }, { name: 'Objet', value: 'Re: salut' }]);
+});

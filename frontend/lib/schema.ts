@@ -117,9 +117,11 @@ export const SCHEMAS: Record<BlockType, FieldDef[]> = {
   sheets: [
     { key: 'action', label: 'Action', type: 'select', options: ['Ajouter une ligne', 'Lire les lignes'], default: 'Ajouter une ligne' },
     { key: 'credentialId', label: 'Compte Google', type: 'google-account', required: true },
-    { key: 'spreadsheet', label: 'Feuille de calcul', type: 'text', required: true, placeholder: 'https://docs.google.com/spreadsheets/d/…', help: "Collez l'adresse de la feuille (ou son ID)." },
-    { key: 'sheet', label: 'Onglet (optionnel)', type: 'text', placeholder: 'Feuille 1', help: 'Vide = premier onglet.' },
-    { key: 'values', label: 'Valeurs de la ligne', type: 'textarea', rows: 4, required: true, showIf: (c) => c.action === 'Ajouter une ligne', placeholder: '{{trigger.from}}\n{{trigger.text}}\n{{llm.text}}', help: 'Une cellule par ligne, dans l\'ordre des colonnes.' },
+    { key: 'values', label: 'Colonnes à remplir', type: 'textarea', rows: 4, required: true, showIf: (c) => c.action === 'Ajouter une ligne', placeholder: 'Expéditeur : \nRéponse : ',
+      help: 'Une colonne par ligne : « Titre : donnée ». Écrivez le titre, puis cliquez une donnée ci-dessous.' },
+    { key: 'spreadsheet', label: 'Feuille Google existante (facultatif)', type: 'text', placeholder: 'Vide = créée automatiquement',
+      help: 'Laissez vide : Relais crée la feuille dans votre Google Drive au premier envoi. Sinon, collez son adresse.' },
+    { key: 'sheet', label: 'Onglet', type: 'text', placeholder: 'Feuille 1', help: 'Vide = premier onglet.', advanced: true },
   ],
   docs: [
     { key: 'action', label: 'Action', type: 'select', options: ['Ajouter du texte', 'Créer un document', 'Lire le document'], default: 'Ajouter du texte' },
@@ -159,7 +161,7 @@ export const SCHEMAS: Record<BlockType, FieldDef[]> = {
 };
 
 export const OUT_VARS: Record<BlockType, string[]> = {
-  llm: ['text', 'json'], whatsapp: ['message_id'], telegram: ['message_id'], mail: ['status'], sheets: ['status', 'rows', 'count'], docs: ['document_id', 'url', 'text'],
+  llm: ['text', 'json'], whatsapp: ['message_id'], telegram: ['message_id'], mail: ['status'], sheets: ['status', 'rows', 'count', 'url'], docs: ['document_id', 'url', 'text'],
   function: ['result'], automation: ['result', 'status'], condition: [],
 };
 

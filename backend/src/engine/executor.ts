@@ -4,7 +4,7 @@ import { config as appConfig } from '../config.js';
 import { executions } from '../db.js';
 import { nodeHandlers } from '../nodes/index.js';
 import type { ExecutionRecord, Json, NodeRun, WorkflowGraph, WorkflowNode } from '../types.js';
-import { resolveDeep, slugify, type NodeOutputs, type Scope } from './expressions.js';
+import { resolveDeep, resolveString, slugify, type NodeOutputs, type Scope } from './expressions.js';
 
 export interface RunOptions {
   mode: 'manual' | 'test' | 'production';
@@ -156,7 +156,7 @@ async function executeNode(
         const cfg = resolveDeep(node.config ?? {}, scope, skip) as Json;
         const tItems = outputs.get(triggerName)?.items ?? [];
         const trigger = tItems[lineage[triggerName] ?? index] ?? tItems[0] ?? {};
-        const outs = await handler.run({ workflowId, executionId: exec.id, mode, node, config: cfg, item, index, trigger });
+        const outs = await handler.run({ workflowId, executionId: exec.id, mode, node, config: cfg, item, index, trigger, resolve: (t) => resolveString(t, scope) });
         for (const o of outs) push(o.port ?? 'out', o.json, lineage);
         break;
       } catch (e) {

@@ -11,6 +11,8 @@ export interface NodeContext {
   index: number;
   /** Élément produit par le déclencheur pour cet index (utile pour répondre à un mail, etc.) */
   trigger: Json;
+  /** Évalue un texte contenant des {{…}} (pour les clés de noResolve) */
+  resolve: (s: string) => unknown;
 }
 export interface NodeOutput { json: Json; port?: string }
 export interface NodeHandler {

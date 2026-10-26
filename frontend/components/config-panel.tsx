@@ -79,6 +79,9 @@ export function ConfigPanel() {
                 <span className={`text-xs ${run.status === 'error' ? 'text-danger' : 'text-ok'}`}>{run.status === 'error' ? 'Erreur' : `Réussi en ${run.durationMs} ms`}</span>
               </div>
               {run.error && <p className="mb-2 text-danger break-words">{run.error}</p>}
+              {n.type === 'sheets' && typeof (run.output?.out?.[0] as { url?: unknown })?.url === 'string' && (
+                <a className="mb-2 inline-block text-accent underline" href={(run.output.out[0] as { url: string }).url} target="_blank" rel="noopener noreferrer">Ouvrir la feuille Google</a>
+              )}
               <pre className="max-h-64 overflow-auto rounded-md border border-line bg-subtle p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all">
                 {JSON.stringify(run.output && Object.keys(run.output).length === 1 ? Object.values(run.output)[0] : run.output, null, 2)}
               </pre>
