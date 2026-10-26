@@ -11,6 +11,7 @@ export const config = {
   adminUsername: (process.env.ADMIN_USERNAME ?? '').trim(),
   adminPin: (process.env.ADMIN_PIN ?? '').trim(),
   encryptionKey: process.env.ENCRYPTION_KEY ?? '',
+  groqApiKey: process.env.GROQ_API ?? '',
   publicUrl: (process.env.PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 3001}`).replace(/\/$/, ''),
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
   dataDir: resolve(process.env.DATA_DIR ?? './data'),

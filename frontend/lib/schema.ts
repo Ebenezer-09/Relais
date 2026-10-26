@@ -73,9 +73,9 @@ export const TRIGGER_NAMES = Object.keys(TRIGGERS) as TriggerName[];
 
 export const SCHEMAS: Record<BlockType, FieldDef[]> = {
   llm: [
-    { key: 'provider', label: 'Fournisseur', type: 'select', options: ['Anthropic (Claude)', 'OpenAI', 'Google Gemini', 'Mistral', 'Ollama (local)', 'Compatible OpenAI'], default: 'Anthropic (Claude)' },
-    { key: 'model', label: 'Modèle', type: 'text', required: true, placeholder: 'Identifiant du modèle' },
-    { key: 'apiKey', label: "Clé d'API", type: 'password', required: true, showIf: (c) => c.provider !== 'Ollama (local)' },
+    { key: 'provider', label: 'Fournisseur', type: 'select', options: ['Groq', 'Anthropic (Claude)', 'OpenAI', 'Google Gemini', 'Mistral', 'Ollama (local)', 'Compatible OpenAI'], default: 'Groq' },
+    { key: 'model', label: 'Modèle', type: 'text', required: true, default: 'openai/gpt-oss-120b', placeholder: 'Identifiant du modèle' },
+    { key: 'apiKey', label: "Clé d'API", type: 'password', required: true, showIf: (c) => c.provider !== 'Ollama (local)' && c.provider !== 'Groq' },
     { key: 'baseUrl', label: 'URL de base', type: 'text', required: true, default: 'http://localhost:11434', showIf: (c) => c.provider === 'Ollama (local)' || c.provider === 'Compatible OpenAI' },
     { key: 'system', label: 'Prompt système', type: 'textarea', rows: 6, required: true, placeholder: "Tu es l'assistant de… Réponds toujours en français, de façon concise.", help: "Le rôle, le ton et les règles de l'agent." },
     { key: 'prompt', label: 'Prompt utilisateur', type: 'textarea', rows: 3, required: true, default: '{{trigger.text}}', help: "Cliquez une variable ci-dessous pour l'insérer." },

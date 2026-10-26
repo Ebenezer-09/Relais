@@ -1,3 +1,4 @@
+import { config } from '../config.js';
 import { memory } from '../db.js';
 import type { NodeHandler } from '../engine/nodeTypes.js';
 import { apiError, postJson } from '../services/http.js';
@@ -56,13 +57,15 @@ export const llm: NodeHandler = {
   noResolve: ['schema'],
   async run({ config: c, workflowId }) {
     const cred = loadCred(c);
-    const provider = String(c.provider || 'Anthropic (Claude)');
+    const provider = String(c.provider || 'Groq');
     const model = need(field(c, {}, 'model'), 'Modèle');
     const prompt = need(String(c.prompt ?? '').trim(), 'Prompt utilisateur');
     const format = String(c.format || 'Texte libre');
     const wantsJson = format !== 'Texte libre';
     const ollama = provider.startsWith('Ollama');
-    const apiKey = field(c, cred, 'apiKey');
+    const groq = provider === 'Groq';
+    // Groq : la clé du serveur (GROQ_API) sert si le bloc n'en fournit pas
+    const apiKey = field(c, cred, 'apiKey') || (groq ? config.groqApiKey : '');
     if (!ollama && !apiKey) throw new Error("Clé d'API manquante");
 
     let system = String(c.system ?? '');
@@ -87,6 +90,7 @@ export const llm: NodeHandler = {
     if (provider.startsWith('Anthropic')) text = await anthropic(opts);
     else if (provider.startsWith('Google')) text = await gemini(opts);
     else if (provider === 'OpenAI') text = await openaiLike(opts, 'https://api.openai.com/v1', true);
+    else if (groq) text = await openaiLike(opts, 'https://api.groq.com/openai/v1', false);
     else if (provider === 'Mistral') text = await openaiLike(opts, 'https://api.mistral.ai/v1', false);
     else if (ollama) text = await openaiLike(opts, `${baseUrl || 'http://localhost:11434'}/v1`, false);
     else text = await openaiLike(opts, need(baseUrl, 'URL de base'), false);
