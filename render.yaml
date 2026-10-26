@@ -30,5 +30,7 @@ services:
         sync: false
       - key: PUBLIC_URL # à saisir : https://relais-api.onrender.com (l'URL de ce service)
         sync: false
+      - key: DATABASE_URL # facultatif : Supabase (Session pooler), garde les agents si le disque est effacé
+        sync: false
       - key: CORS_ORIGIN # à saisir : https://votre-projet.vercel.app (l'URL du frontend)
         sync: false

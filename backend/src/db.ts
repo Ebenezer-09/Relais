@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { config } from './config.js';
 import { decrypt, encrypt } from './crypto.js';
+import { restore, sync } from './mirror.js';
 import type { ExecutionRecord, Json, WorkflowGraph, WorkflowRecord } from './types.js';
 
 export const db = new Database(process.env.DB_PATH ?? join(config.dataDir, 'synapse.db'));
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS state (
   key TEXT PRIMARY KEY, value TEXT NOT NULL
 );
 `);
+await restore(db);
 
 const now = () => Date.now();
 
@@ -54,18 +56,21 @@ export const workflows = {
     const id = randomUUID(), t = now();
     db.prepare('INSERT INTO workflows(id,name,active,graph,created_at,updated_at) VALUES(?,?,0,?,?,?)')
       .run(id, name, JSON.stringify(graph), t, t);
+    sync('workflows', id);
     return workflows.get(id)!;
   },
   update: (id: string, patch: { name?: string; graph?: WorkflowGraph }): WorkflowRecord | undefined => {
     const cur = workflows.get(id); if (!cur) return undefined;
     db.prepare('UPDATE workflows SET name=?, graph=?, updated_at=? WHERE id=?')
       .run(patch.name ?? cur.name, JSON.stringify(patch.graph ?? cur.graph), now(), id);
+    sync('workflows', id);
     return workflows.get(id);
   },
   setActive: (id: string, active: boolean) => {
     db.prepare('UPDATE workflows SET active=?, updated_at=? WHERE id=?').run(active ? 1 : 0, now(), id);
+    sync('workflows', id);
   },
-  remove: (id: string) => { db.prepare('DELETE FROM workflows WHERE id=?').run(id); shares.revoke(id); },
+  remove: (id: string) => { db.prepare('DELETE FROM workflows WHERE id=?').run(id); sync('workflows', id); shares.revoke(id); },
 };
 
 /* ---------------- liens de partage client (lecture seule) ---------------- */
@@ -76,9 +81,10 @@ export const shares = {
   renew: (workflowId: string): string => {
     const token = randomBytes(24).toString('base64url');
     db.prepare('INSERT INTO shares(token,workflow_id,created_at) VALUES(?,?,?) ON CONFLICT(workflow_id) DO UPDATE SET token=excluded.token, created_at=excluded.created_at').run(token, workflowId, now());
+    sync('shares', workflowId);
     return token;
   },
-  revoke: (workflowId: string) => { db.prepare('DELETE FROM shares WHERE workflow_id=?').run(workflowId); },
+  revoke: (workflowId: string) => { db.prepare('DELETE FROM shares WHERE workflow_id=?').run(workflowId); sync('shares', workflowId); },
 };
 
 /* ---------------- credentials (chiffrées) ---------------- */
@@ -98,6 +104,7 @@ export const credentials = {
     const id = randomUUID(), t = now();
     db.prepare('INSERT INTO credentials(id,name,type,data,created_at,updated_at) VALUES(?,?,?,?,?,?)')
       .run(id, name, type, encrypt(JSON.stringify(data)), t, t);
+    sync('credentials', id);
     return credentials.meta(id)!;
   },
   update: (id: string, patch: { name?: string; data?: Json }): CredentialMeta | undefined => {
@@ -105,9 +112,10 @@ export const credentials = {
     const data = patch.data ? { ...credentials.getData(id), ...patch.data } : credentials.getData(id)!;
     db.prepare('UPDATE credentials SET name=?, data=?, updated_at=? WHERE id=?')
       .run(patch.name ?? m.name, encrypt(JSON.stringify(data)), now(), id);
+    sync('credentials', id);
     return credentials.meta(id);
   },
-  remove: (id: string) => { db.prepare('DELETE FROM credentials WHERE id=?').run(id); },
+  remove: (id: string) => { db.prepare('DELETE FROM credentials WHERE id=?').run(id); sync('credentials', id); },
 };
 
 /* ---------------- exécutions ---------------- */
@@ -153,6 +161,7 @@ export const memory = {
   set: (key: string, messages: Json[]) => {
     db.prepare('INSERT INTO memory(key,messages,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET messages=excluded.messages, updated_at=excluded.updated_at')
       .run(key, JSON.stringify(messages), now());
+    sync('memory', key);
   },
 };
 export const kv = {
@@ -163,11 +172,13 @@ export const kv = {
   set: (key: string, value: unknown) => {
     db.prepare('INSERT INTO kv(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at')
       .run(key, JSON.stringify(value), now());
+    sync('kv', key);
   },
 };
 export const state = {
   get: (key: string): string | undefined => (db.prepare('SELECT value FROM state WHERE key=?').get(key) as any)?.value,
   set: (key: string, value: string) => {
     db.prepare('INSERT INTO state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key, value);
+    sync('state', key);
   },
 };
