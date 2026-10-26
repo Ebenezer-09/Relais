@@ -1,18 +1,10 @@
 import type { FlowEdge, FlowNode } from './types';
 
-/* ---------- connexion : URL du backend fixée au build, jeton de session gardé dans ce navigateur ---------- */
-const CONN_KEY = 'relais-api';
-/** key : jeton de session obtenu par nom d'utilisateur + code PIN */
-export interface Connection { url: string; key: string }
-/** Émis quand le serveur refuse la session (expirée ou révoquée) */
-export const LOGOUT_EVENT = 'relais:logout';
+/* ---------- connexion : URL du backend fixée au build, sans authentification ---------- */
+export interface Connection { url: string }
 
 export function getConnection(): Connection {
-  const url = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
-  try { return { url, key: JSON.parse(localStorage.getItem(CONN_KEY) || '{}').key ?? '' }; } catch { return { url, key: '' }; }
-}
-export function saveConnection(c: Connection) {
-  try { localStorage.setItem(CONN_KEY, JSON.stringify({ key: c.key.trim() })); } catch { /* stockage indisponible */ }
+  return { url: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '') };
 }
 
 export class ApiError extends Error {
@@ -24,7 +16,7 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
   try {
     res = await fetch(conn.url + path, {
       method: init.method ?? 'GET',
-      headers: { ...(conn.key ? { authorization: `Bearer ${conn.key}` } : {}), ...(init.body !== undefined ? { 'content-type': 'application/json' } : {}) },
+      headers: init.body !== undefined ? { 'content-type': 'application/json' } : {},
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     });
   } catch {
@@ -32,7 +24,6 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
     throw new ApiError(local ? 'Le serveur ne répond pas. Lancez-le avec « npm run dev » à la racine du projet.' : `Serveur injoignable (${conn.url})`, 0);
   }
   const data = await res.json().catch(() => null);
-  if (res.status === 401 && conn.key) window.dispatchEvent(new Event(LOGOUT_EVENT));
   if (!res.ok) throw new ApiError(data?.error || `Erreur HTTP ${res.status}`, res.status);
   return data as T;
 }
@@ -85,8 +76,6 @@ export const publicApi = {
 export const api = {
   /** Vérifie que le serveur répond ET que la session est valide */
   check: (conn: Connection) => request<CredentialMeta[]>('/api/credentials', {}, conn),
-  login: (username: string, pin: string) =>
-    request<{ token: string }>('/api/auth/login', { method: 'POST', body: { username, pin } }, { url: getConnection().url, key: '' }),
 
   workflows: {
     list: () => request<WorkflowRecord[]>('/api/workflows'),
@@ -112,8 +101,7 @@ export const api = {
     disconnect: (session: string) => request<WaSnapshot>(`/api/whatsapp/${session}/disconnect`, { method: 'POST' }),
     /** Flux SSE de l'état de session ; EventSource ne sait pas envoyer d'en-tête, d'où ?token= */
     events: (session: string, onSnapshot: (s: WaSnapshot) => void): (() => void) => {
-      const { url, key } = getConnection();
-      const es = new EventSource(`${url}/api/whatsapp/${session}/events?token=${encodeURIComponent(key)}`);
+      const es = new EventSource(`${getConnection().url}/api/whatsapp/${session}/events`);
       es.onmessage = (e) => { try { onSnapshot(JSON.parse(e.data)); } catch { /* message mal formé */ } };
       return () => es.close();
     },

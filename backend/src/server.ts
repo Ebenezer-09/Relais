@@ -5,7 +5,6 @@ import { assertProductionConfig, config } from './config.js';
 import { credentials, executions, shares, workflows } from './db.js';
 import { flush } from './mirror.js';
 import { execEvents, findTrigger, runWorkflow, validateGraph } from './engine/executor.js';
-import { login, sameSecret, verifySession } from './auth.js';
 import { accessToken, googleScope, profileEmail } from './services/gmail.js';
 import { http, apiError } from './services/http.js';
 import { validSessionId, wa } from './services/whatsapp.js';
@@ -21,27 +20,6 @@ export async function buildServer() {
   // derrière le proxy Render : l'IP réelle est le dernier saut (non falsifiable par le client)
   trustProxy: (_addr: string, hop: number) => hop === 0 });
   await app.register(cors, { origin: config.corsOrigin === '*' ? true : config.corsOrigin.split(','), allowedHeaders: ['authorization', 'content-type'], methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] });
-
-
-  /* ---------- authentification de l'API du builder ---------- */
-  app.addHook('onRequest', async (req, reply) => {
-    const url = req.url.split('?')[0];
-    if (!url.startsWith('/api/') || url === '/api/health' || url === '/api/auth/login') return;
-    const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-    // EventSource ne sait pas envoyer d'en-tête : le flux SSE accepte ?token=
-    const viaQuery = /^\/api\/whatsapp\/[^/]+\/events$/.test(url) ? String((req.query as any)?.token ?? '') : '';
-    const given = bearer || viaQuery;
-    // jeton de session (écran de connexion) ou API_KEY (scripts)
-    if (!given || !(verifySession(given) || (config.apiKey && sameSecret(given, config.apiKey)))) return reply.code(401).send({ error: 'Session expirée, reconnectez-vous' });
-  });
-
-  app.post('/api/auth/login', async (req, reply) => {
-    const b = (req.body ?? {}) as any;
-    const r = login(b.username, b.pin, req.ip);
-    if ('token' in r) return r;
-    if (r.retryAfter) reply.header('retry-after', String(r.retryAfter));
-    return reply.code(r.status).send({ error: r.error });
-  });
 
   const publicWebhook = (kind: 'webhook' | 'webhook-test', path: string) => `${config.publicUrl}/${kind}${normPath(path)}`;
   const present = (wf: WorkflowRecord) => {

@@ -8,7 +8,7 @@ import { FormField, Input, Select } from './ui/form';
 
 /** Choix d'un compte Google (identifiant googleOAuth du serveur) et connexion d'un nouveau compte */
 export function GoogleAccountField({ label, required, value, onChange }: { label: string; required?: boolean; value: string; onChange: (id: string) => void }) {
-  const { connOk, toast, setSettingsOpen } = useFlow();
+  const { connOk, toast } = useFlow();
   const [accounts, setAccounts] = useState<CredentialMeta[]>([]);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: 'Google', clientId: '', clientSecret: '' });
@@ -38,7 +38,7 @@ export function GoogleAccountField({ label, required, value, onChange }: { label
   if (!connOk) {
     return (
       <FormField label={label} required={required}>
-        <Button className="w-full" onClick={() => setSettingsOpen(true)}>Se connecter au serveur d&apos;abord</Button>
+        <p className="text-xs text-faint">Serveur injoignable pour le moment.</p>
       </FormField>
     );
   }

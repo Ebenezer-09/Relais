@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { api, ApiError, getConnection, LOGOUT_EVENT, saveConnection, type Connection, type Execution, type Graph, type WorkflowRecord } from './api';
+import { api, ApiError, getConnection, type Connection, type Execution, type Graph, type WorkflowRecord } from './api';
 import { SCHEMAS, TRIGGERS, TYPE_META } from './schema';
 import type { BlockType, ConfigValue, Flow, FlowNode, Port, TriggerName, View, WaState } from './types';
 import { defaultsFor, fieldsOf, missing, serialize } from './workflow';
@@ -40,12 +40,11 @@ function useFlowStore() {
   const [sel, setSel] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [wa, setWaState] = useState<WaState>(WA_INIT);
   const [toastMsg, setToastMsg] = useState<{ text: string; id: number } | null>(null);
 
   // backend
-  const [conn, setConn] = useState<Connection>({ url: '', key: '' });
+  const [conn, setConn] = useState<Connection>({ url: '' });
   const [connOk, setConnOk] = useState<boolean | null>(null);
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [active, setActive] = useState(false);
@@ -124,7 +123,6 @@ function useFlowStore() {
 
   useEffect(() => {
     if (!loaded) return;
-    if (!conn.key) { setConnOk(false); setSettingsOpen(true); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -170,23 +168,6 @@ function useFlowStore() {
     return () => clearTimeout(t);
   }, [flow.nodes, flow.edges, loaded, save]);
 
-  /* ---------- connexion au serveur ---------- */
-  const login = useCallback(async (username: string, pin: string) => {
-    const { token } = await api.login(username, pin); // lève une erreur lisible (code faux, blocage…)
-    saveConnection({ url: getConnection().url, key: token });
-    setConn(getConnection());
-    setSettingsOpen(false);
-    toast('Connecté.');
-  }, [toast]);
-  const logout = useCallback(() => {
-    saveConnection({ url: getConnection().url, key: '' });
-    setConn(getConnection());
-  }, []);
-  useEffect(() => {
-    const onLogout = () => { setConnOk(false); connOkRef.current = false; setSettingsOpen(true); };
-    window.addEventListener(LOGOUT_EVENT, onLogout);
-    return () => window.removeEventListener(LOGOUT_EVENT, onLogout);
-  }, []);
 
   /* ---------- vue, sélection, panneau ---------- */
   const setView = useCallback((view: View) => commit((f) => ({ ...f, view }), false), [commit]);
@@ -263,7 +244,7 @@ function useFlowStore() {
 
   /* ---------- exécution et activation ---------- */
   const needServer = useCallback(async (): Promise<string | null> => {
-    if (!connOk) { setSettingsOpen(true); return null; }
+    if (!connOk) { toast('Serveur injoignable, réessayez dans un instant.'); return null; }
     await save();
     if (!idRef.current) toast(saveError || "L'agent n'a pas pu être enregistré.");
     return idRef.current;
@@ -333,7 +314,7 @@ function useFlowStore() {
   }, [connOk, conn]);
 
   const waConnect = useCallback(async () => {
-    if (!connOk) { setSettingsOpen(true); return; }
+    if (!connOk) { toast('Serveur injoignable, réessayez dans un instant.'); return; }
     if (wa.method === 'pairing' && !wa.phone.trim()) { toast('Renseignez le numéro pour le code de jumelage.'); return; }
     try { await api.whatsapp.connect(WA_SESSION, wa.method, wa.phone); } catch (e) { toast(errText(e)); }
   }, [connOk, wa.method, wa.phone, toast]);
@@ -342,11 +323,11 @@ function useFlowStore() {
   }, [toast]);
 
   return {
-    flow, loaded, sel, panelOpen, modalOpen, settingsOpen, wa, toastMsg, getFlow,
+    flow, loaded, sel, panelOpen, modalOpen, wa, toastMsg, getFlow,
     conn, connOk, workflowId, active, webhook, shareToken, shareAgent, unshareAgent, saveState, saveError, lastRun, running,
     setView, select, closePanel, moveNode, setName, setConfig, setTrigger, addNode, deleteNode,
     addEdge, removeEdge, openCreate, closeModal, createAgent, openAgent, validate, exportJson, toast,
-    setWa, waConnect, waDisconnect, runTest, toggleActive, setSettingsOpen, login, logout,
+    setWa, waConnect, waDisconnect, runTest, toggleActive,
   };
 }
 

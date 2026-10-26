@@ -20,12 +20,6 @@ services:
         value: production
       - key: DATA_DIR
         value: /data
-      - key: ADMIN_USERNAME # à saisir : votre nom de connexion
-        sync: false
-      - key: ADMIN_PIN # à saisir : votre code à 4 chiffres
-        sync: false
-      - key: API_KEY # signe les sessions, générée par Render
-        generateValue: true
       - key: ENCRYPTION_KEY # à saisir : openssl rand -hex 32 (ne la perdez jamais)
         sync: false
       - key: PUBLIC_URL # à saisir : https://relais-api.onrender.com (l'URL de ce service)

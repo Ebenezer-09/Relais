@@ -5,7 +5,6 @@
 ```bash
 npm run dev     # à la racine : lance le backend (port 3001) et le frontend (port 3000)
 ```
-Connectez-vous avec `ADMIN_USERNAME` et `ADMIN_PIN` de `backend/.env` (modifiables ; redémarrez le backend après changement).
 `backend/.env` et `frontend/.env.local` restent sur votre machine (ignorés par git).
 
 Render et Vercel déploient depuis un dépôt Git : poussez d'abord ce dossier sur GitHub
@@ -14,13 +13,11 @@ Render et Vercel déploient depuis un dépôt Git : poussez d'abord ce dossier s
 ## 1. Backend sur Render
 
 1. Render → **New → Blueprint** → choisissez le dépôt. Render lit `render.yaml` et crée le service `relais-api`.
-2. Il demande cinq valeurs :
-   - `ADMIN_USERNAME` et `ADMIN_PIN` : vos identifiants de connexion (le PIN = exactement 4 chiffres).
+2. Il demande trois valeurs :
    - `ENCRYPTION_KEY` : le résultat de `openssl rand -hex 32`. **Gardez-la** : sans elle, les comptes Gmail enregistrés deviennent illisibles.
    - `PUBLIC_URL` : l'adresse du service, par exemple `https://relais-api.onrender.com`.
    - `CORS_ORIGIN` : l'adresse du frontend Vercel, par exemple `https://relais.vercel.app` (vous pouvez la compléter après l'étape 2).
-3. `API_KEY` est générée par Render : elle signe les sessions (la changer déconnecte tout le monde).
-4. Vérifiez : `https://relais-api.onrender.com/api/health` doit répondre `{"ok":true,…}`.
+3. Vérifiez : `https://relais-api.onrender.com/api/health` doit répondre `{"ok":true,…}`.
 
 Le plan **Starter** (payant) est nécessaire : l'offre gratuite s'endort après 15 minutes sans trafic
 (WhatsApp, Telegram, Gmail et les planifications s'arrêtent) et n'a pas de disque (base et session WhatsApp perdues à chaque redémarrage).
@@ -35,8 +32,7 @@ Gardez **une seule instance**.
 
 ## 3. Utilisation
 
-- Ouvrez l'adresse Vercel, entrez votre nom d'utilisateur et votre code PIN. La session dure 1 an sur cet appareil.
-  Protection : 5 codes faux bloquent l'appareil 15 min ; 30 codes faux en une heure bloquent toute connexion pendant 1 h.
+- Ouvrez l'adresse Vercel : il n'y a aucune connexion. ⚠️ Toute personne qui connaît l'adresse du site ou de l'API peut voir et modifier les agents et utiliser le compte Google connecté.
 - Créez un agent, configurez-le, testez-le, activez-le.
 - **Partager** (en-tête) → **Créer le lien client** : envoyez ce lien au client. Il voit son agent en direct,
   chaque exécution et les valeurs produites à chaque étape, sans pouvoir rien modifier ni voir les clés.

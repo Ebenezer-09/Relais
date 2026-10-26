@@ -174,10 +174,9 @@ describe('services', () => {
 
 describe('API', () => {
   const H = { authorization: 'Bearer ' + process.env.API_KEY };
-  test('auth, webhook de test/production, activation, mode « attendre »', async () => {
+  test('API ouverte, webhook de test/production, activation, mode « attendre »', async () => {
     const app = await buildServer();
-    assert.equal((await app.inject('/api/workflows')).statusCode, 401);
-    assert.equal((await app.inject({ url: '/api/workflows', headers: { authorization: 'Bearer faux' } })).statusCode, 401);
+    assert.equal((await app.inject('/api/workflows')).statusCode, 200, 'API ouverte, sans connexion');
     assert.equal((await app.inject('/api/health')).statusCode, 200);
 
     const graph: G = {
@@ -231,7 +230,6 @@ describe('API', () => {
     };
     const w = (await app.inject({ method: 'POST', url: '/api/workflows', headers: H, payload: { name: 'Client', graph } })).json();
     assert.equal(w.shareToken, null);
-    assert.equal((await app.inject({ method: 'POST', url: `/api/workflows/${w.id}/share` })).statusCode, 401);
     const { shareToken } = (await app.inject({ method: 'POST', url: `/api/workflows/${w.id}/share`, headers: H })).json();
     const ex = (await app.inject({ method: 'POST', url: `/api/workflows/${w.id}/run`, headers: H, payload: {} })).json();
     assert.equal(ex.runData.at(-1).status, 'success');
@@ -248,23 +246,6 @@ describe('API', () => {
     assert.equal((await app.inject(`/public/${shareToken}`)).statusCode, 404);
     await app.inject({ method: 'DELETE', url: `/api/workflows/${w.id}/share`, headers: H });
     assert.equal((await app.inject(`/public/${renewed}`)).statusCode, 404);
-    await app.close();
-  });
-
-  test('connexion : nom + PIN, blocage après 5 erreurs', async () => {
-    const { resetLoginLimits } = await import('../src/auth.js');
-    resetLoginLimits();
-    const app = await buildServer();
-    const login = (pin: string, ip = '10.0.0.1') => app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'Admin', pin }, remoteAddress: ip });
-    const ok = await login('4821');
-    assert.equal(ok.statusCode, 200);
-    assert.equal((await app.inject({ url: '/api/workflows', headers: { authorization: 'Bearer ' + ok.json().token } })).statusCode, 200);
-    assert.equal((await app.inject({ url: '/api/workflows', headers: { authorization: 'Bearer 9999999999999.faux' } })).statusCode, 401);
-    for (let i = 0; i < 5; i++) assert.equal((await login('0000')).statusCode, 401);
-    const locked = await login('4821');
-    assert.equal(locked.statusCode, 429, 'le bon PIN est refusé pendant le blocage');
-    assert.equal((await login('4821', '10.0.0.2')).statusCode, 200, 'une autre adresse reste libre');
-    resetLoginLimits();
     await app.close();
   });
 });
