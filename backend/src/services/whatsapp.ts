@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { config } from '../config.js';
+import { syncDir } from '../mirror.js';
 import type { Json } from '../types.js';
 
 export type WaStatus = 'disconnected' | 'connecting' | 'qr' | 'pairing' | 'connected';
@@ -63,7 +64,11 @@ class WhatsAppManager extends EventEmitter {
     const baileys: any = await import('@whiskeysockets/baileys');
     const makeWASocket = baileys.default?.default ?? baileys.default ?? baileys.makeWASocket;
     const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = baileys;
-    const { state, saveCreds } = await useMultiFileAuthState(this.dir(s.id));
+    const dir = this.dir(s.id);
+    const { state, saveCreds } = await useMultiFileAuthState(dir);
+    // chaque écriture de session est recopiée dans Postgres (si DATABASE_URL), pour survivre à un disque effacé
+    const setKeys = state.keys.set.bind(state.keys);
+    state.keys.set = async (data: any) => { await setKeys(data); syncDir(dir); };
     let version: number[] | undefined;
     try { version = (await fetchLatestBaileysVersion()).version; } catch { /* version embarquée */ }
 
@@ -72,7 +77,7 @@ class WhatsAppManager extends EventEmitter {
       printQRInTerminal: false, syncFullHistory: false, markOnlineOnConnect: false,
     });
     s.sock = sock;
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', async () => { await saveCreds(); syncDir(dir); });
 
     sock.ev.on('connection.update', async (u: any) => {
       if (s.sock !== sock) return;
@@ -100,7 +105,7 @@ class WhatsAppManager extends EventEmitter {
         const code = lastDisconnect?.error?.output?.statusCode;
         if (s.stopping) return;
         if (code === DisconnectReason.loggedOut) {
-          rmSync(this.dir(s.id), { recursive: true, force: true });
+          rmSync(this.dir(s.id), { recursive: true, force: true }); syncDir(this.dir(s.id));
           s.status = 'disconnected'; s.qr = undefined; s.pairingCode = undefined; s.number = undefined; s.sock = undefined;
           this.publish(s);
           return;
@@ -136,7 +141,7 @@ class WhatsAppManager extends EventEmitter {
     s.stopping = true;
     clearTimeout(s.timer);
     try { if (logout) await s.sock?.logout(); else s.sock?.end?.(undefined); } catch { /* déjà fermé */ }
-    if (logout) rmSync(this.dir(id), { recursive: true, force: true });
+    if (logout) { rmSync(this.dir(id), { recursive: true, force: true }); syncDir(this.dir(id)); }
     s.status = 'disconnected'; s.qr = undefined; s.pairingCode = undefined; s.sock = undefined;
     if (logout) s.number = undefined;
     this.publish(s);

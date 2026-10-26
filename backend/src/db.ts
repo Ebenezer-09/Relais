@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS state (
   key TEXT PRIMARY KEY, value TEXT NOT NULL
 );
 `);
-await restore(db);
+await restore(db, config.dataDir);
 
 const now = () => Date.now();
 
@@ -132,6 +132,7 @@ export const executions = {
       .run({ id: e.id, workflow_id: e.workflowId, mode: e.mode, status: e.status, started_at: e.startedAt,
         finished_at: e.finishedAt ?? null, error: e.error ?? null, run_data: JSON.stringify(e.runData),
         result: e.result ? JSON.stringify(e.result) : null });
+    sync('executions', e.id);
   },
   get: (id: string): ExecutionRecord | undefined => {
     const r = db.prepare('SELECT * FROM executions WHERE id=?').get(id);
@@ -144,11 +145,15 @@ export const executions = {
     return rows.map((r) => rowToExec(r, false));
   },
   prune: (keep: number) => {
+    const old = db.prepare('SELECT id FROM executions WHERE id NOT IN (SELECT id FROM executions ORDER BY started_at DESC LIMIT ?)').all(keep) as { id: string }[];
     db.prepare('DELETE FROM executions WHERE id NOT IN (SELECT id FROM executions ORDER BY started_at DESC LIMIT ?)').run(keep);
+    for (const { id } of old) sync('executions', id);
   },
   /** Les exécutions restées "running" après un crash sont marquées en erreur au démarrage. */
   failStale: () => {
+    const stale = db.prepare("SELECT id FROM executions WHERE status='running'").all() as { id: string }[];
     db.prepare("UPDATE executions SET status='error', error='Interrompue par un redémarrage', finished_at=? WHERE status='running'").run(now());
+    for (const { id } of stale) sync('executions', id);
   },
 };
 

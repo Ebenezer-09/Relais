@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { assertProductionConfig, config } from './config.js';
 import { credentials, executions, shares, workflows } from './db.js';
+import { flush } from './mirror.js';
 import { execEvents, findTrigger, runWorkflow, validateGraph } from './engine/executor.js';
 import { login, sameSecret, verifySession } from './auth.js';
 import { accessToken, googleScope, profileEmail } from './services/gmail.js';
@@ -266,6 +267,6 @@ if (isMain) {
   await app.listen({ port: config.port, host: config.host });
   activateAll();
   wa.restoreAll().catch((e) => app.log.error(e));
-  const stop = async () => { deactivateAll(); await wa.shutdown(); await app.close(); process.exit(0); };
+  const stop = async () => { deactivateAll(); await wa.shutdown(); await app.close(); await flush(); process.exit(0); };
   process.on('SIGTERM', stop); process.on('SIGINT', stop);
 }
